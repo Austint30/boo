@@ -127,7 +127,7 @@ add_library(boo
   include/boo/System.hpp
   include/boo/ThreadLocalPtr.hpp
   InputDeviceClasses.cpp
-)
+        lib/vrdev/OpenXRSystem.cpp lib/vrdev/OpenXRSystem.hpp lib/vrdev/Options.h)
 
 if (NOT MSVC)
   target_compile_options(boo PRIVATE -Wno-narrowing)
@@ -525,3 +525,5 @@ add_subdirectory(test)
 if(WINDOWS_STORE)
   set_property(TARGET boo booTest PROPERTY VS_WINRT_COMPONENT TRUE)
 endif()
+
+target_include_directories(boo PUBLIC openxr/include)

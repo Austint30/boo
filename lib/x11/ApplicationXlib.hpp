@@ -35,6 +35,9 @@ DBusConnection* RegisterDBus(const char* appName, bool& isFirst);
 #include "boo/graphicsdev/Vulkan.hpp"
 #endif
 
+// OpenXR
+#include <openxr/openxr.h>
+
 namespace boo {
 XlibCursors X_CURSORS;
 

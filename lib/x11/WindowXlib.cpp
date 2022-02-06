@@ -38,6 +38,8 @@
 
 #include "lib/x11/XlibCommon.hpp"
 
+#include "lib/vrdev/OpenXRSystem.hpp"
+
 #define REF_DPMM 3.78138
 #define FS_ATOM "_NET_WM_STATE_FULLSCREEN"
 
@@ -90,7 +92,6 @@ extern "C" const uint8_t MAINICON_NETWM[];
 extern "C" const size_t MAINICON_NETWM_SZ;
 
 namespace boo {
-static logvisor::Module Log("boo::WindowXlib");
 std::unique_ptr<IGraphicsCommandQueue> _NewGLCommandQueue(IGraphicsContext* parent, GLContext* glCtx);
 std::unique_ptr<IGraphicsDataFactory> _NewGLDataFactory(IGraphicsContext* parent, GLContext* glCtx);
 #if BOO_HAS_VULKAN
