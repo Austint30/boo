@@ -38,8 +38,6 @@
 
 #include "lib/x11/XlibCommon.hpp"
 
-#include "lib/vrdev/OpenXRSystem.hpp"
-
 #define REF_DPMM 3.78138
 #define FS_ATOM "_NET_WM_STATE_FULLSCREEN"
 

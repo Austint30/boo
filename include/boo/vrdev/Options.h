@@ -2,11 +2,15 @@
 // Created by austin on 1/30/22.
 //
 
+#pragma once
+
 #include <string>
 
 namespace boo {
     struct Options {
         std::string GraphicsPlugin;
+
+        std::string AppName{"OpenXR Program"};
 
         std::string FormFactor{"Hmd"};
 

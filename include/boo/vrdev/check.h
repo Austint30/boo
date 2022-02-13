@@ -5,7 +5,7 @@
 #pragma once
 
 #include "common.h"
-#include <logvisor/logvisor.hpp>
+#include "logvisor/logvisor.hpp"
 
 #define CHK_STRINGIFY(x) #x
 #define TOSTRING(x) CHK_STRINGIFY(x)

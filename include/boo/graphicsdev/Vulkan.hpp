@@ -167,6 +167,8 @@ public:
   };
 
   static std::vector<uint8_t> CompileGLSL(const char* source, PipelineStage stage);
+
+  std::vector<std::string> openXrInstanceExtensions() override;
 };
 
 } // namespace boo

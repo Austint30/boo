@@ -286,6 +286,10 @@ struct IGraphicsDataFactory {
   virtual bool isTessellationSupported(uint32_t& maxPatchSizeOut) = 0;
   virtual void waitUntilShadersReady() = 0;
   virtual bool areShadersReady() = 0;
+
+
+  // OpenXR
+  virtual std::vector<std::string> openXrInstanceExtensions() { return {}; };
 };
 
 using GraphicsDataFactoryContext = IGraphicsDataFactory::Context;

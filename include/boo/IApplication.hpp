@@ -7,6 +7,7 @@
 #include "boo/IWindow.hpp"
 #include "boo/System.hpp"
 #include "boo/inputdev/DeviceFinder.hpp"
+#include "include/boo/vrdev/OpenXRSystem.hpp"
 
 namespace boo {
 class IApplication;
@@ -23,6 +24,7 @@ class IApplication {
   friend class WindowXlib;
   friend class WindowWin32;
   virtual void _deletedWindow(IWindow* window) = 0;
+  std::unique_ptr<OpenXRSystem> m_openXrSystem;
 
 public:
   virtual ~IApplication() = default;
@@ -51,6 +53,13 @@ public:
 
   /* Constructors/initializers for sub-objects */
   virtual std::shared_ptr<IWindow> newWindow(std::string_view title) = 0;
+
+  void initOpenXRSystem(const std::shared_ptr<Options>& options,
+                        const std::shared_ptr<IGraphicsDataFactory>& graphicsFactory){
+    m_openXrSystem = std::make_unique<OpenXRSystem>(options, graphicsFactory);
+    m_openXrSystem->CreateInstance();
+
+  }
 };
 
 int ApplicationRun(IApplication::EPlatformType platform, IApplicationCallback& cb, std::string_view uniqueName,

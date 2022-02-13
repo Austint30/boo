@@ -9,9 +9,9 @@
 #include <algorithm>
 #include <stdarg.h>
 #include <stddef.h>
-#include <logvisor/logvisor.hpp>
+#include "logvisor/logvisor.hpp"
 
-#include <openxr/openxr_reflection.h>
+#include "openxr/include/openxr/openxr_reflection.h"
 
 static logvisor::Module Log("common.h");
 
@@ -97,4 +97,4 @@ template <typename T, size_t Size>
 constexpr size_t ArraySize(const T (&/*unused*/)[Size]) noexcept {
     return Size;
 }
-#include "check.h"
+#include "include/boo/vrdev/check.h"

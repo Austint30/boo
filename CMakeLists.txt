@@ -126,8 +126,10 @@ add_library(boo
   include/boo/IWindow.hpp
   include/boo/System.hpp
   include/boo/ThreadLocalPtr.hpp
-  InputDeviceClasses.cpp
-        lib/vrdev/OpenXRSystem.cpp lib/vrdev/OpenXRSystem.hpp lib/vrdev/Options.h)
+  include/boo/vrdev/OpenXRSystem.hpp
+  lib/vrdev/OpenXRSystem.cpp
+  include/boo/vrdev/Options.h
+  InputDeviceClasses.cpp)
 
 if (NOT MSVC)
   target_compile_options(boo PRIVATE -Wno-narrowing)
