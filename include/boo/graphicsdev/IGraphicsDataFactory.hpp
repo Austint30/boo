@@ -289,7 +289,7 @@ struct IGraphicsDataFactory {
 
 
   // OpenXR
-  virtual std::vector<std::string> openXrInstanceExtensions() { return {}; };
+  virtual std::vector<std::string> openXrInstanceExtensions() = 0;
 };
 
 using GraphicsDataFactoryContext = IGraphicsDataFactory::Context;

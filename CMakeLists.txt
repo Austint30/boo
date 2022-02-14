@@ -127,8 +127,8 @@ add_library(boo
   include/boo/IWindow.hpp
   include/boo/System.hpp
   include/boo/ThreadLocalPtr.hpp
-  include/boo/vrdev/Options.h
-  InputDeviceClasses.cpp)
+        include/boo/vrdev/OpenXROptions.h
+  InputDeviceClasses.cpp lib/vrdev/OpenXRSystem.cpp)
 
 if (NOT MSVC)
   target_compile_options(boo PRIVATE -Wno-narrowing)
@@ -433,6 +433,7 @@ else(NOT GEKKO)
       target_compile_definitions(boo
         PUBLIC
           -DBOO_HAS_VULKAN=1
+          -DXR_USE_GRAPHICS_API_VULKAN
           -DVK_USE_PLATFORM_XCB_KHR=1
       )
       set(BOO_ENABLE_VULKAN_IN_OPTICK TRUE)

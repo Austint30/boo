@@ -11,8 +11,6 @@
 #include <SPIRV/disassemble.h>
 #include <optick.h>
 
-#include <openxr/openxr_platform.h>
-
 #include "boo/IGraphicsContext.hpp"
 #include "boo/graphicsdev/GLSLMacros.hpp"
 #include "boo/graphicsdev/IGraphicsCommandQueue.hpp"
@@ -162,8 +160,6 @@ public:
   bool areShadersReady() override {
     return m_pipelineQueue.isReady();
   }
-
-  std::vector<std::string> openXrInstanceExtensions() override { return {XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME}; };
 };
 
 static void ThrowIfFailed(VkResult res) {

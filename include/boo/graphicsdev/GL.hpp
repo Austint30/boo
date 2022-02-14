@@ -59,6 +59,7 @@ public:
                          const ObjToken<ITexture>* texs, const int* texBindIdx, const bool* depthBind,
                          size_t baseVert = 0, size_t baseInst = 0) override;
   };
+  std::vector<std::string> openXrInstanceExtensions() override { return {}; };
 };
 
 } // namespace boo

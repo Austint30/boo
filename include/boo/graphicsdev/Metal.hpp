@@ -53,6 +53,7 @@ public:
   };
 
   static std::vector<uint8_t> CompileMetal(const char* source, PipelineStage stage);
+  std::vector<std::string> openXrInstanceExtensions() override { return {}; };
 };
 
 } // namespace boo

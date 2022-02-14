@@ -5,33 +5,32 @@
 
 #pragma once
 
+#include <logvisor/logvisor.hpp>
 #include <memory>
 #include <openxr/openxr.h>
 #include <vector>
-#include <logvisor/logvisor.hpp>
 
-#include "boo/vrdev/Options.h"
-#include "boo/vrdev/check.h"
 #include "IGraphicsDataFactory.hpp"
-#include "boo/IApplication.hpp"
+#include "boo/vrdev/OpenXROptions.h"
+#include "boo/vrdev/check.h"
 
 namespace boo {
 
-class OpenXRSystem {
+struct OpenXRSystem {
 private:
-  const std::shared_ptr<Options> m_options;
+  const std::shared_ptr<OpenXROptions> m_options;
   std::shared_ptr<IGraphicsDataFactory> m_graphicsFactory;
   XrInstance m_instance{XR_NULL_HANDLE};
   XrSession m_session{XR_NULL_HANDLE};
   XrSpace m_appSpace{XR_NULL_HANDLE};
 
 public:
-  explicit OpenXRSystem(const std::shared_ptr<Options>& options,
+  explicit OpenXRSystem(const std::shared_ptr<OpenXROptions>& options,
                         const std::shared_ptr<IGraphicsDataFactory>& graphicsFactory);
   virtual ~OpenXRSystem() = default;
 
   // Create an Instance and other basic instance-level initialization.
-  virtual void createInstance() = 0;
+  void createInstance();
 
 //  // Select a System for the view configuration specified in the Options and initialize the graphics device for the
 //  // selected system.

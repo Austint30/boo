@@ -7,7 +7,7 @@
 #include <string>
 
 namespace boo {
-    struct Options {
+    struct OpenXROptions {
         std::string GraphicsPlugin;
 
         std::string AppName{"OpenXR Program"};

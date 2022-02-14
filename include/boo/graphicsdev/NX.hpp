@@ -81,6 +81,8 @@ public:
         const size_t* ubufSizes, size_t texCount, const boo::ObjToken<ITexture>* texs, const int* bindIdxs,
         const bool* bindDepth, size_t baseVert = 0, size_t baseInst = 0);
   };
+
+  std::vector<std::string> openXrInstanceExtensions() override { return {}; };
 };
 
 } // namespace boo

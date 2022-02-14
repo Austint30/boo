@@ -5,6 +5,7 @@
 #include <queue>
 #include <unordered_map>
 #include <vector>
+#include <openxr/openxr_platform.h>
 
 #include "boo/BooObject.hpp"
 #include "boo/IGraphicsContext.hpp"
@@ -168,7 +169,7 @@ public:
 
   static std::vector<uint8_t> CompileGLSL(const char* source, PipelineStage stage);
 
-  std::vector<std::string> openXrInstanceExtensions() override;
+  std::vector<std::string> openXrInstanceExtensions() override { return {XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME}; };
 };
 
 } // namespace boo

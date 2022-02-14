@@ -7,8 +7,8 @@
 
 namespace boo {
 
-OpenXRSystem::OpenXRSystem(const std::shared_ptr<Options>& options,
-                           const std::shared_ptr<IGraphicsDataFactory>& graphicsFactory)
+OpenXRSystem::OpenXRSystem(const std::shared_ptr<OpenXROptions>& options,
+                             const std::shared_ptr<IGraphicsDataFactory>& graphicsFactory)
 : m_options(options), m_graphicsFactory(graphicsFactory) {}
 
 void OpenXRSystem::createInstance() {
