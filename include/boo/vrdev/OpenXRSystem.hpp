@@ -31,7 +31,7 @@ public:
   virtual ~OpenXRSystem() = default;
 
   // Create an Instance and other basic instance-level initialization.
-  virtual void CreateInstance() = 0;
+  virtual void createInstance() = 0;
 
 //  // Select a System for the view configuration specified in the Options and initialize the graphics device for the
 //  // selected system.
