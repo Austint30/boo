@@ -11,7 +11,7 @@
 #include <stddef.h>
 #include "logvisor/logvisor.hpp"
 
-#include "openxr/include/openxr/openxr_reflection.h"
+#include <openxr/openxr_reflection.h>
 
 static logvisor::Module Log("common.h");
 

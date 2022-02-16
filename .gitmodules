@@ -9,6 +9,3 @@
 [submodule "optick"]
 	path = optick
 	url = https://github.com/AxioDL/optick.git
-[submodule "openxr"]
-	path = openxr
-	url = https://github.com/KhronosGroup/OpenXR-SDK
