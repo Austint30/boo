@@ -108,7 +108,7 @@ struct VulkanContext {
   bool initVulkanXr(std::string_view appName, PFN_vkGetInstanceProcAddr getVkProc, XrInstance& xrInstance, XrSystemId& xrSystemId);
   bool enumerateDevices();
   void initDevice();
-  void initDeviceXr(XrInstance& xrInstance, XrSystemId& xrSystemId);
+  void initDeviceXr(PFN_vkGetInstanceProcAddr getVkProc, XrInstance& xrInstance, XrSystemId& xrSystemId);
   void destroyDevice();
   void initSwapChain(Window& windowCtx, VkSurfaceKHR surface, VkFormat format, VkColorSpaceKHR colorspace);
 

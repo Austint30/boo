@@ -535,7 +535,7 @@ public:
 
   const std::vector<std::string>& getArgs() const override { return m_args; }
 
-  std::shared_ptr<IWindow> newWindowXr(std::string_view title) override {
+  std::shared_ptr<IWindow> newWindow(std::string_view title) override {
     XLockDisplay(m_xDisp);
 #if BOO_HAS_VULKAN
     std::shared_ptr<IWindow> newWindow = _WindowXlibNew(title, m_xDisp, m_xcbConn, m_xDefaultScreen, m_xIM, m_bestStyle,
@@ -557,7 +557,7 @@ public:
     return newWindow;
   }
 
-  std::shared_ptr<IWindow> newWindow(std::string_view title) override {
+  std::shared_ptr<IWindow> newWindowXr(std::string_view title) override {
     XLockDisplay(m_xDisp);
 #if BOO_HAS_VULKAN
     std::shared_ptr<IWindow> newWindow = _WindowXlibNewXR(title, m_xDisp, m_xcbConn, m_xDefaultScreen, m_xIM, m_bestStyle,

@@ -426,7 +426,7 @@ bool VulkanContext::initVulkanXr(std::string_view appName, PFN_vkGetInstanceProc
   // OpenXR Stuff
   XrVulkanInstanceCreateInfoKHR createInfo{XR_TYPE_VULKAN_INSTANCE_CREATE_INFO_KHR};
   createInfo.systemId = xrSystemId;
-  createInfo.pfnGetInstanceProcAddr = &vkGetInstanceProcAddr;
+  createInfo.pfnGetInstanceProcAddr = getVkProc;
   createInfo.vulkanCreateInfo = &instInfo;
   createInfo.vulkanAllocator = nullptr;
 
@@ -623,7 +623,7 @@ bool VulkanContext::enumerateDevices() {
 }
 
 // Does the same thing as initDevice but with OpenXR stuff added.
-void VulkanContext::initDeviceXr(XrInstance& xrInstance, XrSystemId& xrSystemId){
+void VulkanContext::initDeviceXr(PFN_vkGetInstanceProcAddr getVkProc, XrInstance& xrInstance, XrSystemId& xrSystemId){
   if (m_graphicsQueueFamilyIndex == UINT32_MAX)
     Log.report(logvisor::Fatal, FMT_STRING("VulkanContext::m_graphicsQueueFamilyIndex hasn't been initialized"));
 
@@ -703,7 +703,7 @@ void VulkanContext::initDeviceXr(XrInstance& xrInstance, XrSystemId& xrSystemId)
 
   XrVulkanDeviceCreateInfoKHR deviceCreateInfo{XR_TYPE_VULKAN_DEVICE_CREATE_INFO_KHR};
   deviceCreateInfo.systemId = xrSystemId;
-  deviceCreateInfo.pfnGetInstanceProcAddr = &vkGetInstanceProcAddr;
+  deviceCreateInfo.pfnGetInstanceProcAddr = getVkProc;
   deviceCreateInfo.vulkanCreateInfo = &deviceInfo;
   deviceCreateInfo.vulkanPhysicalDevice = m_gpus[0];
   deviceCreateInfo.vulkanAllocator = nullptr;
