@@ -108,6 +108,10 @@ std::shared_ptr<IWindow> _WindowXlibNew(std::string_view title, Display* display
                                         XIM xIM, XIMStyle bestInputStyle, XFontSet fontset, GLXContext lastCtx,
                                         void* vulkanHandle, GLContext* glCtx);
 
+std::shared_ptr<IWindow> _WindowXlibNewXR(std::string_view title, Display* display, void* xcbConn, int defaultScreen,
+                                        XIM xIM, XIMStyle bestInputStyle, XFontSet fontset, GLXContext lastCtx,
+                                        void* vulkanHandle, GLContext* glCtx);
+
 static XIMStyle ChooseBetterStyle(XIMStyle style1, XIMStyle style2) {
   XIMStyle s, t;
   XIMStyle preedit = XIMPreeditArea | XIMPreeditCallbacks | XIMPreeditPosition | XIMPreeditNothing | XIMPreeditNone;
@@ -531,13 +535,35 @@ public:
 
   const std::vector<std::string>& getArgs() const override { return m_args; }
 
-  std::shared_ptr<IWindow> newWindow(std::string_view title) override {
+  std::shared_ptr<IWindow> newWindowXr(std::string_view title) override {
     XLockDisplay(m_xDisp);
 #if BOO_HAS_VULKAN
     std::shared_ptr<IWindow> newWindow = _WindowXlibNew(title, m_xDisp, m_xcbConn, m_xDefaultScreen, m_xIM, m_bestStyle,
                                                         m_fontset, m_lastGlxCtx, (void*)m_getVkProc, &m_glContext);
 #else
     std::shared_ptr<IWindow> newWindow = _WindowXlibNew(title, m_xDisp, nullptr, m_xDefaultScreen, m_xIM, m_bestStyle,
+                                                        m_fontset, m_lastGlxCtx, nullptr, &m_glContext);
+#endif
+    Window wid = (Window)newWindow->getPlatformHandle();
+    m_windows[wid] = newWindow;
+    XEvent reply = {};
+    reply.xclient.type = ClientMessage;
+    reply.xclient.window = wid;
+    reply.xclient.message_type = XA_INTEGER;
+    reply.xclient.format = 32;
+    reply.xclient.data.l[0] = 'NWID';
+    XSendEvent(m_xDisp, wid, false, 0, &reply);
+    XUnlockDisplay(m_xDisp);
+    return newWindow;
+  }
+
+  std::shared_ptr<IWindow> newWindow(std::string_view title) override {
+    XLockDisplay(m_xDisp);
+#if BOO_HAS_VULKAN
+    std::shared_ptr<IWindow> newWindow = _WindowXlibNewXR(title, m_xDisp, m_xcbConn, m_xDefaultScreen, m_xIM, m_bestStyle,
+                                                        m_fontset, m_lastGlxCtx, (void*)m_getVkProc, &m_glContext);
+#else
+    std::shared_ptr<IWindow> newWindow = _WindowXlibNewXR(title, m_xDisp, nullptr, m_xDefaultScreen, m_xIM, m_bestStyle,
                                                         m_fontset, m_lastGlxCtx, nullptr, &m_glContext);
 #endif
     Window wid = (Window)newWindow->getPlatformHandle();

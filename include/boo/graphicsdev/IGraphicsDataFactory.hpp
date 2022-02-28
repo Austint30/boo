@@ -5,6 +5,8 @@
 #include <functional>
 #include <initializer_list>
 #include <vector>
+#include <vulkan/vulkan.h>
+#include <openxr/openxr_platform.h>
 
 #include "boo/BooObject.hpp"
 #include "boo/System.hpp"
@@ -290,6 +292,7 @@ struct IGraphicsDataFactory {
 
   // OpenXR
   virtual std::vector<std::string> openXrInstanceExtensions() = 0;
+  virtual XrBaseInStructure* getGraphicsBinding() = 0;
 };
 
 using GraphicsDataFactoryContext = IGraphicsDataFactory::Context;

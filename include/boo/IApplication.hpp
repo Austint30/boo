@@ -53,13 +53,15 @@ public:
 
   /* Constructors/initializers for sub-objects */
   virtual std::shared_ptr<IWindow> newWindow(std::string_view title) = 0;
+  virtual std::shared_ptr<IWindow> newWindowXr(std::string_view title) = 0;
 
-  void initOpenXRSystem(const std::shared_ptr<OpenXROptions>& options,
-                        const std::shared_ptr<IGraphicsDataFactory>& graphicsFactory){
-    m_openXrSystem = std::shared_ptr<OpenXRSystem>(new OpenXRSystem(options, graphicsFactory));
-    m_openXrSystem->createInstance();
-
-  }
+//  void initOpenXRSystem(const OpenXROptions options,
+//                        const std::shared_ptr<IGraphicsDataFactory>& graphicsFactory){
+//    m_openXrSystem = std::shared_ptr<OpenXRSystem>(new OpenXRSystem(options, graphicsFactory));
+//    m_openXrSystem->createInstance();
+//    m_openXrSystem->initializeSystem();
+//    m_openXrSystem->initializeSession();
+//  }
 };
 
 int ApplicationRun(IApplication::EPlatformType platform, IApplicationCallback& cb, std::string_view uniqueName,

@@ -18,14 +18,18 @@ namespace boo {
 
 struct OpenXRSystem {
 private:
-  const std::shared_ptr<OpenXROptions> m_options;
+  const OpenXROptions m_options;
   std::shared_ptr<IGraphicsDataFactory> m_graphicsFactory;
   XrInstance m_instance{XR_NULL_HANDLE};
   XrSession m_session{XR_NULL_HANDLE};
   XrSpace m_appSpace{XR_NULL_HANDLE};
+  XrFormFactor m_formFactor{XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY};
+  XrViewConfigurationType m_viewConfigType{XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO};
+  XrEnvironmentBlendMode m_environmentBlendMode{XR_ENVIRONMENT_BLEND_MODE_OPAQUE};
+  XrSystemId m_systemId{XR_NULL_SYSTEM_ID};
 
 public:
-  explicit OpenXRSystem(const std::shared_ptr<OpenXROptions>& options,
+  explicit OpenXRSystem(const OpenXROptions options,
                         const std::shared_ptr<IGraphicsDataFactory>& graphicsFactory);
   virtual ~OpenXRSystem() = default;
 
@@ -34,11 +38,11 @@ public:
 
 //  // Select a System for the view configuration specified in the Options and initialize the graphics device for the
 //  // selected system.
-//  virtual void InitializeSystem() = 0;
+  void initializeSystem();
 //
-//  // Create a Session and other basic session-level initialization.
-//  virtual void InitializeSession() = 0;
-//
+  // Create a Session and other basic session-level initialization.
+  void initializeSession();
+
 //  // Create a Swapchain which requires coordinating with the graphics plugin to select the format, getting the system
 //  // graphics properties, getting the view configuration and grabbing the resulting swapchain images.
 //  virtual void CreateSwapchains() = 0;
@@ -121,6 +125,78 @@ public:
     Log.report(logvisor::Info, FMT_STRING("Instance RuntimeName={} RuntimeVersion={}"), instanceProperties.runtimeName,
                                      GetXrVersionString(instanceProperties.runtimeVersion).c_str());
   }
+
+  void LogEnvironmentBlendMode(XrViewConfigurationType type) {
+    CHECK(m_instance != XR_NULL_HANDLE);
+    CHECK(m_systemId != 0);
+
+    uint32_t count;
+    CHECK_XRCMD(xrEnumerateEnvironmentBlendModes(m_instance, m_systemId, type, 0, &count, nullptr));
+    CHECK(count > 0);
+
+    Log.report(logvisor::Info, FMT_STRING("Available Environment Blend Mode count : ({})"), count);
+
+    std::vector<XrEnvironmentBlendMode> blendModes(count);
+    CHECK_XRCMD(xrEnumerateEnvironmentBlendModes(m_instance, m_systemId, type, count, &count, blendModes.data()));
+
+    bool blendModeFound = false;
+    for (XrEnvironmentBlendMode mode : blendModes) {
+      const bool blendModeMatch = (mode == m_environmentBlendMode);
+      Log.report(logvisor::Info,
+                 FMT_STRING("Environment Blend Mode ({}) : {}"), to_string(mode), blendModeMatch ? "(Selected)" : "");
+      blendModeFound |= blendModeMatch;
+    }
+    CHECK(blendModeFound);
+  }
+
+  void LogViewConfigurations() {
+    CHECK(m_instance != XR_NULL_HANDLE);
+    CHECK(m_systemId != XR_NULL_SYSTEM_ID);
+
+    uint32_t viewConfigTypeCount;
+    CHECK_XRCMD(xrEnumerateViewConfigurations(m_instance, m_systemId, 0, &viewConfigTypeCount, nullptr));
+    std::vector<XrViewConfigurationType> viewConfigTypes(viewConfigTypeCount);
+    CHECK_XRCMD(xrEnumerateViewConfigurations(m_instance, m_systemId, viewConfigTypeCount, &viewConfigTypeCount,
+                                              viewConfigTypes.data()));
+    CHECK((uint32_t)viewConfigTypes.size() == viewConfigTypeCount);
+
+    Log.report(logvisor::Info, FMT_STRING("Available View Configuration Types: ({})"), viewConfigTypeCount);
+    for (XrViewConfigurationType viewConfigType : viewConfigTypes) {
+      Log.report(logvisor::Info, FMT_STRING("  View Configuration Type: {} {}"), to_string(viewConfigType),
+                                          viewConfigType == m_viewConfigType ? "(Selected)" : "");
+
+      XrViewConfigurationProperties viewConfigProperties{XR_TYPE_VIEW_CONFIGURATION_PROPERTIES};
+      CHECK_XRCMD(xrGetViewConfigurationProperties(m_instance, m_systemId, viewConfigType, &viewConfigProperties));
+
+      Log.report(logvisor::Info,
+                 FMT_STRING("  View configuration FovMutable={}"), viewConfigProperties.fovMutable == XR_TRUE ? "True" : "False");
+
+      uint32_t viewCount;
+      CHECK_XRCMD(xrEnumerateViewConfigurationViews(m_instance, m_systemId, viewConfigType, 0, &viewCount, nullptr));
+      if (viewCount > 0) {
+        std::vector<XrViewConfigurationView> views(viewCount, {XR_TYPE_VIEW_CONFIGURATION_VIEW});
+        CHECK_XRCMD(
+            xrEnumerateViewConfigurationViews(m_instance, m_systemId, viewConfigType, viewCount, &viewCount, views.data()));
+
+        for (uint32_t i = 0; i < views.size(); i++) {
+          const XrViewConfigurationView& view = views[i];
+
+          Log.report(logvisor::Info, FMT_STRING("    View [{}]: Recommended Width=%d Height=%d SampleCount={}"), i,
+                                              view.recommendedImageRectWidth, view.recommendedImageRectHeight,
+                                              view.recommendedSwapchainSampleCount);
+          Log.report(logvisor::Info,
+                     FMT_STRING("    View [{}]:     Maximum Width=%d Height=%d SampleCount={}"), i, view.maxImageRectWidth,
+                         view.maxImageRectHeight, view.maxSwapchainSampleCount);
+        }
+      } else {
+        Log.report(logvisor::Error, FMT_STRING("Empty view configuration type"));
+      }
+
+      LogEnvironmentBlendMode(viewConfigType);
+    }
+  }
+  XrInstance_T* getMInstance() const;
+  XrSystemId getMSystemId() const;
 };
 
 } // namespace boo

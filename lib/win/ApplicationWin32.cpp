@@ -466,6 +466,11 @@ public:
     m_allWindows[hwnd] = window;
     return window;
   }
+
+  std::shared_ptr<IWindow> newWindowXr(std::string_view title) override {
+    Log.report(logvisor::Error, FMT_STRING("OpenXR not supported by Win32 application implementation. Using non-OpenXR window."));
+    return newWindow(title);
+  }
 };
 
 IApplication* APP = nullptr;

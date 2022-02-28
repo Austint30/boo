@@ -5,6 +5,7 @@
 #include <queue>
 #include <unordered_map>
 #include <vector>
+#include <vulkan/vulkan.h>
 #include <openxr/openxr_platform.h>
 
 #include "boo/BooObject.hpp"
@@ -13,6 +14,7 @@
 #include "boo/System.hpp"
 #include "boo/graphicsdev/IGraphicsDataFactory.hpp"
 #include "boo/graphicsdev/VulkanDispatchTable.hpp"
+#include "boo/vrdev/check.h"
 
 /* Forward-declare handle type for Vulkan Memory Allocator */
 struct VmaAllocator_T;
@@ -55,6 +57,7 @@ struct VulkanContext {
   VkCommandBuffer m_loadCmdBuf = VK_NULL_HANDLE;
   VkFormat m_displayFormat;
   VkFormat m_internalFormat;
+  XrGraphicsBindingVulkan2KHR m_xrGraphicsBinding{XR_TYPE_GRAPHICS_BINDING_VULKAN2_KHR};
 
   struct Window {
     struct SwapChain {
@@ -102,8 +105,10 @@ struct VulkanContext {
   std::unordered_map<uint32_t, VkSampler> m_samplers;
 
   bool initVulkan(std::string_view appName, PFN_vkGetInstanceProcAddr getVkProc);
+  bool initVulkanXr(std::string_view appName, PFN_vkGetInstanceProcAddr getVkProc, XrInstance& xrInstance, XrSystemId& xrSystemId);
   bool enumerateDevices();
   void initDevice();
+  void initDeviceXr(XrInstance& xrInstance, XrSystemId& xrSystemId);
   void destroyDevice();
   void initSwapChain(Window& windowCtx, VkSurfaceKHR surface, VkFormat format, VkColorSpaceKHR colorspace);
 
@@ -131,6 +136,7 @@ public:
     friend class VulkanDataFactoryImpl;
     VulkanDataFactory& m_parent;
     boo::ObjToken<BaseGraphicsData> m_data;
+
 
   public:
     Context(VulkanDataFactory& parent __BooTraceArgs);
@@ -170,7 +176,49 @@ public:
   static std::vector<uint8_t> CompileGLSL(const char* source, PipelineStage stage);
 
   std::vector<std::string> openXrInstanceExtensions() override { return {XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME}; };
+  static XrStructureType GetGraphicsBindingType()  { return XR_TYPE_GRAPHICS_BINDING_VULKAN2_KHR; }
+  static  XrStructureType GetSwapchainImageType()  { return XR_TYPE_SWAPCHAIN_IMAGE_VULKAN2_KHR; }
 };
+
+// ----------------------------------------------------------------------------------------------------------------------------
+// Stuff copied from https://github.com/KhronosGroup/OpenXR-SDK-Source/blob/master/src/tests/hello_xr/graphicsplugin_vulkan.cpp
+// ----------------------------------------------------------------------------------------------------------------------------
+inline XrResult CreateVulkanInstanceKHR(XrInstance instance, const XrVulkanInstanceCreateInfoKHR* createInfo,
+                                 VkInstance* vulkanInstance, VkResult* vulkanResult) {
+  PFN_xrCreateVulkanInstanceKHR pfnCreateVulkanInstanceKHR = nullptr;
+  CHECK_XRCMD(xrGetInstanceProcAddr(instance, "xrCreateVulkanInstanceKHR",
+                                    reinterpret_cast<PFN_xrVoidFunction*>(&pfnCreateVulkanInstanceKHR)));
+
+  return pfnCreateVulkanInstanceKHR(instance, createInfo, vulkanInstance, vulkanResult);
+}
+
+inline XrResult CreateVulkanDeviceKHR(XrInstance instance, const XrVulkanDeviceCreateInfoKHR* createInfo,
+                               VkDevice* vulkanDevice, VkResult* vulkanResult) {
+  PFN_xrCreateVulkanDeviceKHR pfnCreateVulkanDeviceKHR = nullptr;
+  CHECK_XRCMD(xrGetInstanceProcAddr(instance, "xrCreateVulkanDeviceKHR",
+                                    reinterpret_cast<PFN_xrVoidFunction*>(&pfnCreateVulkanDeviceKHR)));
+
+  return pfnCreateVulkanDeviceKHR(instance, createInfo, vulkanDevice, vulkanResult);
+}
+
+inline XrResult GetVulkanGraphicsDevice2KHR(XrInstance instance, const XrVulkanGraphicsDeviceGetInfoKHR* getInfo,
+                                     VkPhysicalDevice* vulkanPhysicalDevice) {
+  PFN_xrGetVulkanGraphicsDevice2KHR pfnGetVulkanGraphicsDevice2KHR = nullptr;
+  CHECK_XRCMD(xrGetInstanceProcAddr(instance, "xrGetVulkanGraphicsDevice2KHR",
+                                    reinterpret_cast<PFN_xrVoidFunction*>(&pfnGetVulkanGraphicsDevice2KHR)));
+
+  return pfnGetVulkanGraphicsDevice2KHR(instance, getInfo, vulkanPhysicalDevice);
+}
+
+inline XrResult GetVulkanGraphicsRequirements2KHR(XrInstance instance, XrSystemId systemId,
+                                           XrGraphicsRequirementsVulkan2KHR* graphicsRequirements) {
+  PFN_xrGetVulkanGraphicsRequirements2KHR pfnGetVulkanGraphicsRequirements2KHR = nullptr;
+  CHECK_XRCMD(xrGetInstanceProcAddr(instance, "xrGetVulkanGraphicsRequirements2KHR",
+                                    reinterpret_cast<PFN_xrVoidFunction*>(&pfnGetVulkanGraphicsRequirements2KHR)));
+
+  return pfnGetVulkanGraphicsRequirements2KHR(instance, systemId, graphicsRequirements);
+}
+// ----------------------------------------------------------------------------------------------------------------------------
 
 } // namespace boo
 

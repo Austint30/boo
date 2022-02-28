@@ -275,6 +275,8 @@ struct GraphicsContextXlib : IGraphicsContext {
   : m_api(api), m_pf(pf), m_parentWindow(parentWindow), m_glCtx(glCtx), m_xDisp(disp) {}
   virtual void destroy() = 0;
   virtual void resized(const SWindowRect& rect) = 0;
+
+  virtual bool initializeContextXr(void* handle, XrInstance xrInstance, XrSystemId xrSystemId) = 0;
 };
 
 struct GraphicsContextXlibGLX : GraphicsContextXlib {
@@ -290,6 +292,8 @@ struct GraphicsContextXlibGLX : GraphicsContextXlib {
   std::unique_ptr<IGraphicsCommandQueue> m_commandQueue;
   GLXContext m_mainCtx = 0;
   GLXContext m_loadCtx = 0;
+
+
 
 public:
   IWindowCallback* m_callback;
@@ -390,6 +394,11 @@ public:
     m_pf = pf;
   }
 
+  bool initializeContextXr(void* handle, XrInstance xrInstance, XrSystemId xrSystemId) override {
+    Log.report(logvisor::Error, FMT_STRING("GraphicsContextXlibGLX does not support OpenXR yet."));
+    return false;
+  }
+
   bool initializeContext(void*) override {
     if (!glXCreateContextAttribsARB) {
       glXCreateContextAttribsARB =
@@ -482,6 +491,7 @@ public:
 
 #if BOO_HAS_VULKAN
 struct GraphicsContextXlibVulkan : GraphicsContextXlib {
+
   xcb_connection_t* m_xcbConn;
   VulkanContext* m_ctx;
   VkSurfaceKHR m_surface = VK_NULL_HANDLE;
@@ -544,10 +554,21 @@ public:
     m_pf = pf;
   }
 
+  bool initializeContextXr(void* getVkProc, XrInstance xrInstance, XrSystemId xrSystemId) override {
+    if (m_ctx->m_instance == VK_NULL_HANDLE)
+      m_ctx->initVulkanXr(APP->getUniqueName(), PFN_vkGetInstanceProcAddr(getVkProc), xrInstance, xrSystemId);
+
+    return initializeContextInternal(getVkProc);
+  }
+
   bool initializeContext(void* getVkProc) override {
     if (m_ctx->m_instance == VK_NULL_HANDLE)
       m_ctx->initVulkan(APP->getUniqueName(), PFN_vkGetInstanceProcAddr(getVkProc));
 
+    return initializeContextInternal(getVkProc);
+  }
+
+  bool initializeContextInternal(void* getVkProc){
     if (!m_ctx->enumerateDevices())
       return false;
 
@@ -664,6 +685,7 @@ class WindowXlib final : public IWindow {
   XIMStyle m_bestStyle;
   XIC m_xIC = nullptr;
   std::unique_ptr<GraphicsContextXlib> m_gfxCtx;
+  std::shared_ptr<OpenXRSystem> m_openXrSystem;
   uint32_t m_visualId;
 
   struct timespec m_waitPeriod = {0, static_cast<long int>(1000000000.0/60.0)};
@@ -725,7 +747,7 @@ class WindowXlib final : public IWindow {
 
 public:
   WindowXlib(std::string_view title, Display* display, void* xcbConn, int defaultScreen, XIM xIM,
-             XIMStyle bestInputStyle, XFontSet fontset, GLXContext lastCtx, void* vulkanHandle, GLContext* glCtx)
+             XIMStyle bestInputStyle, XFontSet fontset, GLXContext lastCtx, void* vulkanHandle, GLContext* glCtx, bool enableXr=false)
   : m_xDisp(display), m_callback(nullptr), m_bestStyle(bestInputStyle) {
     BOO_MSAN_NO_INTERCEPT
     if (!S_ATOMS)
@@ -850,12 +872,31 @@ public:
       m_waitPeriod = {nanos / 1000000000, nanos % 1000000000};
       XFlush(m_xDisp);
 
-      if (!m_gfxCtx->initializeContext(vulkanHandle)) {
-        XUnmapWindow(m_xDisp, m_windowId);
-        XDestroyWindow(m_xDisp, m_windowId);
-        XFreeColormap(m_xDisp, m_colormapId);
-        continue;
+      if (enableXr){
+        OpenXROptions options;
+        m_openXrSystem = std::make_shared<OpenXRSystem>(options, static_cast<const std::shared_ptr<IGraphicsDataFactory>>(m_gfxCtx->getDataFactory()));
+        m_openXrSystem->createInstance();
+        m_openXrSystem->initializeSystem();
+
+        if (!m_gfxCtx->initializeContextXr(vulkanHandle, m_openXrSystem->getMInstance(), m_openXrSystem->getMSystemId())) {
+          XUnmapWindow(m_xDisp, m_windowId);
+          XDestroyWindow(m_xDisp, m_windowId);
+          XFreeColormap(m_xDisp, m_colormapId);
+          continue;
+        }
+
+        m_openXrSystem->initializeSession();
       }
+      else
+      {
+        if (!m_gfxCtx->initializeContext(vulkanHandle)) {
+          XUnmapWindow(m_xDisp, m_windowId);
+          XDestroyWindow(m_xDisp, m_windowId);
+          XFreeColormap(m_xDisp, m_colormapId);
+          continue;
+        }
+      }
+
       break;
     }
   }
@@ -1756,6 +1797,14 @@ std::shared_ptr<IWindow> _WindowXlibNew(std::string_view title, Display* display
                                         void* vulkanHandle, GLContext* glCtx) {
   std::shared_ptr<IWindow> ret = std::make_shared<WindowXlib>(title, display, xcbConn, defaultScreen, xIM,
                                                               bestInputStyle, fontset, lastCtx, vulkanHandle, glCtx);
+  return ret;
+}
+
+std::shared_ptr<IWindow> _WindowXlibNewXR(std::string_view title, Display* display, void* xcbConn, int defaultScreen,
+                                        XIM xIM, XIMStyle bestInputStyle, XFontSet fontset, GLXContext lastCtx,
+                                        void* vulkanHandle, GLContext* glCtx) {
+  std::shared_ptr<IWindow> ret = std::make_shared<WindowXlib>(title, display, xcbConn, defaultScreen, xIM,
+                                                              bestInputStyle, fontset, lastCtx, vulkanHandle, glCtx, true);
   return ret;
 }
 

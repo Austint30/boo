@@ -528,5 +528,14 @@ if(WINDOWS_STORE)
   set_property(TARGET boo booTest PROPERTY VS_WINRT_COMPONENT TRUE)
 endif()
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-find_package(OpenXR REQUIRED)
+
+find_path(OPENXR_INCLUDE_DIR
+  NAMES openxr/openxr.h
+)
+
+# OpenXR
+find_library(OPENXR_LIBRARY openxr_loader)
+include(SelectLibraryConfigurations)
+select_library_configurations(OPENXR)
+target_link_libraries(boo PUBLIC ${OPENXR_LIBRARIES})
+target_include_directories(boo PUBLIC ${OPENXR_INCLUDE_DIR}/include)
