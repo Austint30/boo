@@ -148,10 +148,6 @@ public:
   void waitUntilShadersReady() override {}
 
   bool areShadersReady() override { return true; }
-
-  XrBaseInStructure* getGraphicsBinding() override {
-    return nullptr;
-  }
 };
 
 constexpr std::array<GLenum, 4> USE_TABLE{

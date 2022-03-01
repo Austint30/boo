@@ -48,6 +48,11 @@ public:
 
   IGraphicsDataFactory* getLoadContextDataFactory() override { return nullptr; }
 
+  std::vector<std::string> openXrInstanceExtensions() const override { return {}; };
+  XrBaseInStructure* getGraphicsBinding() override {
+    return nullptr;
+  }
+
   void present() override {}
 };
 

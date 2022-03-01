@@ -65,7 +65,7 @@ public:
   };
 
   static std::vector<uint8_t> CompileHLSL(const char* source, PipelineStage stage);
-  std::vector<std::string> openXrInstanceExtensions() override { return {}; };
+  std::vector<std::string> openXrInstanceExtensions() const override { return {}; };
 };
 
 } // namespace boo

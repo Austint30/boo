@@ -42,11 +42,10 @@ inline XrEnvironmentBlendMode GetXrEnvironmentBlendMode(const std::string& envir
   return XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
 }
 
-OpenXRSystem::OpenXRSystem(const OpenXROptions options,
-                             const std::shared_ptr<IGraphicsDataFactory>& graphicsFactory)
-: m_options(options), m_graphicsFactory(graphicsFactory) {}
+OpenXRSystem::OpenXRSystem(const OpenXROptions options)
+: m_options(options) {}
 
-void OpenXRSystem::createInstance() {
+void OpenXRSystem::createInstance(std::vector<std::string> graphicsExtensions) {
   LogLayersAndExtensions();
 
   CHECK(m_instance == XR_NULL_HANDLE);
@@ -55,7 +54,6 @@ void OpenXRSystem::createInstance() {
   std::vector<const char*> extensions;
 
   // Transform platform and graphics extension std::strings to C strings.
-  const std::vector<std::string> graphicsExtensions = m_graphicsFactory->openXrInstanceExtensions();
   std::transform(graphicsExtensions.begin(), graphicsExtensions.end(), std::back_inserter(extensions),
                  [](const std::string& ext) { return ext.c_str(); });
 
@@ -95,7 +93,7 @@ void OpenXRSystem::initializeSystem() {
 //  m_graphicsPlugin->InitializeDevice(m_instance, m_systemId);
 }
 
-void OpenXRSystem::initializeSession() {
+void OpenXRSystem::initializeSession(XrBaseInStructure* graphicsBinding) {
   CHECK(m_instance != XR_NULL_HANDLE);
   CHECK(m_session == XR_NULL_HANDLE);
 
@@ -103,14 +101,13 @@ void OpenXRSystem::initializeSession() {
     Log.report(logvisor::Info, FMT_STRING("Creating session..."));
 
     XrSessionCreateInfo createInfo{XR_TYPE_SESSION_CREATE_INFO};
-    createInfo.next = m_graphicsFactory->getGraphicsBinding();
-    createInfo.next = NULL;
+    createInfo.next = graphicsBinding;
     createInfo.systemId = m_systemId;
     CHECK_XRCMD(xrCreateSession(m_instance, &createInfo, &m_session));
   }
 //  InitializeActions();
 }
-XrInstance_T* OpenXRSystem::getMInstance() const { return m_instance; }
+const XrInstance_T* OpenXRSystem::getMInstance() const { return m_instance; }
 XrSystemId OpenXRSystem::getMSystemId() const { return m_systemId; }
 
 } // boo

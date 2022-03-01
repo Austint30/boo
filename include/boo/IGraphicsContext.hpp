@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <openxr/openxr.h>
 
 namespace boo {
 struct IGraphicsCommandQueue;
@@ -52,6 +53,9 @@ public:
 
   /* Creates a new context on current thread!! Call from client loading thread */
   virtual IGraphicsDataFactory* getLoadContextDataFactory() = 0;
+
+  virtual std::vector<std::string> openXrInstanceExtensions() const = 0;
+  virtual XrBaseInStructure* getGraphicsBinding() = 0;
 };
 
 } // namespace boo

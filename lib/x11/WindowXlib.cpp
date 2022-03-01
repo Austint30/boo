@@ -487,6 +487,11 @@ public:
   }
 
   void present() override { glXSwapBuffers(m_xDisp, m_glxWindow); }
+
+  std::vector<std::string> openXrInstanceExtensions() const override { return {}; };
+  XrBaseInStructure* getGraphicsBinding() override {
+    return nullptr;
+  }
 };
 
 #if BOO_HAS_VULKAN
@@ -758,6 +763,12 @@ public:
 
   IGraphicsDataFactory* getLoadContextDataFactory() override { return getDataFactory(); }
 
+  std::vector<std::string> openXrInstanceExtensions() const override { return {XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME}; };
+
+  XrBaseInStructure* getGraphicsBinding() override {
+    return const_cast<XrBaseInStructure*>(reinterpret_cast<const XrBaseInStructure*>(&m_ctx->m_xrGraphicsBinding));
+  }
+
   void present() override {}
 };
 #endif
@@ -959,18 +970,18 @@ public:
 
       if (enableXr){
         OpenXROptions options;
-        m_openXrSystem = std::make_shared<OpenXRSystem>(options, static_cast<const std::shared_ptr<IGraphicsDataFactory>>(m_gfxCtx->getDataFactory()));
-        m_openXrSystem->createInstance();
+        m_openXrSystem = std::make_shared<OpenXRSystem>(options);
+        m_openXrSystem->createInstance(m_gfxCtx->openXrInstanceExtensions());
         m_openXrSystem->initializeSystem();
 
-        if (!m_gfxCtx->initializeContextXr(vulkanHandle, m_openXrSystem->getMInstance(), m_openXrSystem->getMSystemId())) {
+        if (!m_gfxCtx->initializeContextXr(vulkanHandle, const_cast<XrInstance>(m_openXrSystem->getMInstance()), m_openXrSystem->getMSystemId())) {
           XUnmapWindow(m_xDisp, m_windowId);
           XDestroyWindow(m_xDisp, m_windowId);
           XFreeColormap(m_xDisp, m_colormapId);
           continue;
         }
 
-        m_openXrSystem->initializeSession();
+        m_openXrSystem->initializeSession(m_gfxCtx->getGraphicsBinding());
       }
       else
       {

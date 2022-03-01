@@ -10,16 +10,15 @@
 #include <openxr/openxr.h>
 #include <vector>
 
-#include "IGraphicsDataFactory.hpp"
 #include "boo/vrdev/OpenXROptions.h"
 #include "boo/vrdev/check.h"
+#include "boo/IGraphicsContext.hpp"
 
 namespace boo {
 
 struct OpenXRSystem {
 private:
   const OpenXROptions m_options;
-  std::shared_ptr<IGraphicsDataFactory> m_graphicsFactory;
   XrInstance m_instance{XR_NULL_HANDLE};
   XrSession m_session{XR_NULL_HANDLE};
   XrSpace m_appSpace{XR_NULL_HANDLE};
@@ -29,19 +28,18 @@ private:
   XrSystemId m_systemId{XR_NULL_SYSTEM_ID};
 
 public:
-  explicit OpenXRSystem(const OpenXROptions options,
-                        const std::shared_ptr<IGraphicsDataFactory>& graphicsFactory);
+  explicit OpenXRSystem(const OpenXROptions options);
   virtual ~OpenXRSystem() = default;
 
   // Create an Instance and other basic instance-level initialization.
-  void createInstance();
+  void createInstance(std::vector<std::string> graphicsExtensions);
 
 //  // Select a System for the view configuration specified in the Options and initialize the graphics device for the
 //  // selected system.
   void initializeSystem();
 //
   // Create a Session and other basic session-level initialization.
-  void initializeSession();
+  void initializeSession(XrBaseInStructure* graphicsBinding);
 
 //  // Create a Swapchain which requires coordinating with the graphics plugin to select the format, getting the system
 //  // graphics properties, getting the view configuration and grabbing the resulting swapchain images.
@@ -195,7 +193,8 @@ public:
       LogEnvironmentBlendMode(viewConfigType);
     }
   }
-  XrInstance_T* getMInstance() const;
+
+  const XrInstance_T* getMInstance() const;
   XrSystemId getMSystemId() const;
 };
 

@@ -161,10 +161,6 @@ public:
   bool areShadersReady() override {
     return m_pipelineQueue.isReady();
   }
-
-  XrBaseInStructure* getGraphicsBinding() override {
-    return const_cast<XrBaseInStructure*>(reinterpret_cast<const XrBaseInStructure*>(&m_ctx->m_xrGraphicsBinding));
-  }
 };
 
 static void ThrowIfFailed(VkResult res) {
@@ -623,7 +619,7 @@ bool VulkanContext::enumerateDevices() {
 }
 
 // Does the same thing as initDevice but with OpenXR stuff added.
-void VulkanContext::initDeviceXr(PFN_vkGetInstanceProcAddr getVkProc, XrInstance& xrInstance, XrSystemId& xrSystemId){
+void VulkanContext::initDeviceXr(PFN_vkGetInstanceProcAddr getVkProc, XrInstance xrInstance, XrSystemId xrSystemId){
   if (m_graphicsQueueFamilyIndex == UINT32_MAX)
     Log.report(logvisor::Fatal, FMT_STRING("VulkanContext::m_graphicsQueueFamilyIndex hasn't been initialized"));
 
@@ -4580,6 +4576,46 @@ std::vector<uint8_t> VulkanDataFactory::CompileGLSL(const char* source, Pipeline
   std::vector<uint8_t> ret(out.size() * 4);
   memcpy(ret.data(), out.data(), ret.size());
   return ret;
+}
+
+
+// ----------------------------------------------------------------------------------------------------------------------------
+// Stuff copied from https://github.com/KhronosGroup/OpenXR-SDK-Source/blob/master/src/tests/hello_xr/graphicsplugin_vulkan.cpp
+// ----------------------------------------------------------------------------------------------------------------------------
+XrResult CreateVulkanInstanceKHR(XrInstance instance, const XrVulkanInstanceCreateInfoKHR* createInfo,
+                                 VkInstance* vulkanInstance, VkResult* vulkanResult) {
+  PFN_xrCreateVulkanInstanceKHR pfnCreateVulkanInstanceKHR = nullptr;
+  CHECK_XRCMD(xrGetInstanceProcAddr(instance, "xrCreateVulkanInstanceKHR",
+                                    reinterpret_cast<PFN_xrVoidFunction*>(&pfnCreateVulkanInstanceKHR)));
+
+  return pfnCreateVulkanInstanceKHR(instance, createInfo, vulkanInstance, vulkanResult);
+}
+
+XrResult CreateVulkanDeviceKHR(XrInstance instance, const XrVulkanDeviceCreateInfoKHR* createInfo,
+                               VkDevice* vulkanDevice, VkResult* vulkanResult) {
+  PFN_xrCreateVulkanDeviceKHR pfnCreateVulkanDeviceKHR = nullptr;
+  CHECK_XRCMD(xrGetInstanceProcAddr(instance, "xrCreateVulkanDeviceKHR",
+                                    reinterpret_cast<PFN_xrVoidFunction*>(&pfnCreateVulkanDeviceKHR)));
+
+  return pfnCreateVulkanDeviceKHR(instance, createInfo, vulkanDevice, vulkanResult);
+}
+
+XrResult GetVulkanGraphicsDevice2KHR(XrInstance instance, const XrVulkanGraphicsDeviceGetInfoKHR* getInfo,
+                                     VkPhysicalDevice* vulkanPhysicalDevice) {
+  PFN_xrGetVulkanGraphicsDevice2KHR pfnGetVulkanGraphicsDevice2KHR = nullptr;
+  CHECK_XRCMD(xrGetInstanceProcAddr(instance, "xrGetVulkanGraphicsDevice2KHR",
+                                    reinterpret_cast<PFN_xrVoidFunction*>(&pfnGetVulkanGraphicsDevice2KHR)));
+
+  return pfnGetVulkanGraphicsDevice2KHR(instance, getInfo, vulkanPhysicalDevice);
+}
+
+XrResult GetVulkanGraphicsRequirements2KHR(XrInstance instance, XrSystemId systemId,
+                                           XrGraphicsRequirementsVulkan2KHR* graphicsRequirements) {
+  PFN_xrGetVulkanGraphicsRequirements2KHR pfnGetVulkanGraphicsRequirements2KHR = nullptr;
+  CHECK_XRCMD(xrGetInstanceProcAddr(instance, "xrGetVulkanGraphicsRequirements2KHR",
+                                    reinterpret_cast<PFN_xrVoidFunction*>(&pfnGetVulkanGraphicsRequirements2KHR)));
+
+  return pfnGetVulkanGraphicsRequirements2KHR(instance, systemId, graphicsRequirements);
 }
 
 } // namespace boo
