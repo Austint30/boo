@@ -48,10 +48,6 @@ public:
   const std::vector<std::string>& getArgs() const override { return m_args; }
 
   std::shared_ptr<IWindow> newWindow(std::string_view title) override { return _WindowWaylandNew(title); }
-  std::shared_ptr<IWindow> newWindowXr(std::string_view title) override {
-    Log.report(logvisor::Error, FMT_STRING("OpenXR not supported by Wayland application implementation. Using non-OpenXR window."));
-    return newWindow(title);
-  }
 };
 
 } // namespace boo

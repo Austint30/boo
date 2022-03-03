@@ -17,6 +17,7 @@
 namespace boo {
 
 struct OpenXRSystem {
+  friend class WindowXlib;
 private:
   const OpenXROptions m_options;
   XrInstance m_instance{XR_NULL_HANDLE};
@@ -193,9 +194,6 @@ public:
       LogEnvironmentBlendMode(viewConfigType);
     }
   }
-
-  const XrInstance_T* getMInstance() const;
-  XrSystemId getMSystemId() const;
 };
 
 } // namespace boo

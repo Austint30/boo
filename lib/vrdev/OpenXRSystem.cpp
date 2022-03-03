@@ -107,8 +107,6 @@ void OpenXRSystem::initializeSession(XrBaseInStructure* graphicsBinding) {
   }
 //  InitializeActions();
 }
-const XrInstance_T* OpenXRSystem::getMInstance() const { return m_instance; }
-XrSystemId OpenXRSystem::getMSystemId() const { return m_systemId; }
 
 } // boo
 

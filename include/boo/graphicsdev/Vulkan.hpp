@@ -104,11 +104,9 @@ struct VulkanContext {
 
   std::unordered_map<uint32_t, VkSampler> m_samplers;
 
-  bool initVulkan(std::string_view appName, PFN_vkGetInstanceProcAddr getVkProc);
-  bool initVulkanXr(std::string_view appName, PFN_vkGetInstanceProcAddr getVkProc, XrInstance& xrInstance, XrSystemId& xrSystemId);
+  bool initVulkan(std::string_view appName, PFN_vkGetInstanceProcAddr getVkProc, PFN_xrGetInstanceProcAddr getXrProc, XrInstance xrInstance, XrSystemId xrSystemId);
   bool enumerateDevices();
-  void initDevice();
-  void initDeviceXr(PFN_vkGetInstanceProcAddr getVkProc, XrInstance xrInstance, XrSystemId xrSystemId);
+  void initDevice(PFN_vkGetInstanceProcAddr getVkProc, PFN_xrGetInstanceProcAddr getXrProc, XrInstance xrInstance, XrSystemId xrSystemId);
   void destroyDevice();
   void initSwapChain(Window& windowCtx, VkSurfaceKHR surface, VkFormat format, VkColorSpaceKHR colorspace);
 

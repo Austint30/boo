@@ -320,8 +320,7 @@ static void demo_check_layers(const std::vector<VulkanContext::LayerProperties>&
   }
 }
 
-// Does the same thing as initVulkan but with OpenXR stuff added.
-bool VulkanContext::initVulkanXr(std::string_view appName, PFN_vkGetInstanceProcAddr getVkProc, XrInstance& xrInstance, XrSystemId& xrSystemId) {
+bool VulkanContext::initVulkan(std::string_view appName, PFN_vkGetInstanceProcAddr getVkProc, PFN_xrGetInstanceProcAddr getXrProc, XrInstance xrInstance, XrSystemId xrSystemId) {
   vk::init_dispatch_table_top(getVkProc);
 
   if (!glslang::InitializeProcess()) {
@@ -419,146 +418,23 @@ bool VulkanContext::initVulkanXr(std::string_view appName, PFN_vkGetInstanceProc
   instInfo.enabledExtensionCount = m_instanceExtensionNames.size();
   instInfo.ppEnabledExtensionNames = m_instanceExtensionNames.data();
 
-  // OpenXR Stuff
-  XrVulkanInstanceCreateInfoKHR createInfo{XR_TYPE_VULKAN_INSTANCE_CREATE_INFO_KHR};
-  createInfo.systemId = xrSystemId;
-  createInfo.pfnGetInstanceProcAddr = getVkProc;
-  createInfo.vulkanCreateInfo = &instInfo;
-  createInfo.vulkanAllocator = nullptr;
+  VkResult instRes;
 
-  VkResult err;
-  CHECK_XRCMD(CreateVulkanInstanceKHR(xrInstance, &createInfo, &m_instance, &err));
+  if (getXrProc){
+    XrVulkanInstanceCreateInfoKHR createInfo{XR_TYPE_VULKAN_INSTANCE_CREATE_INFO_KHR};
+    createInfo.systemId = xrSystemId;
+    createInfo.pfnGetInstanceProcAddr = getVkProc;
+    createInfo.vulkanCreateInfo = &instInfo;
+    createInfo.vulkanAllocator = nullptr;
 
-  if (err < VK_SUCCESS) {
-    Log.report(logvisor::Error, FMT_STRING("The Vulkan runtime is installed, but there are no supported "
-                                           "hardware vendor interfaces present"));
-    return false;
+    CHECK_XRCMD(CreateVulkanInstanceKHR(xrInstance, &createInfo, &m_instance, &instRes));
+    Log.report(logvisor::Info, FMT_STRING("OPENXR instance created"));
+  }
+  else
+  {
+    instRes = vk::CreateInstance(&instInfo, nullptr, &m_instance);
   }
 
-#ifndef NDEBUG
-  PFN_vkCreateDebugReportCallbackEXT createDebugReportCallback =
-      (PFN_vkCreateDebugReportCallbackEXT)vk::GetInstanceProcAddr(m_instance, "vkCreateDebugReportCallbackEXT");
-  if (!createDebugReportCallback)
-    Log.report(logvisor::Fatal, FMT_STRING("GetInstanceProcAddr: Unable to find vkCreateDebugReportCallbackEXT function."));
-
-  m_destroyDebugReportCallback =
-      (PFN_vkDestroyDebugReportCallbackEXT)vk::GetInstanceProcAddr(m_instance, "vkDestroyDebugReportCallbackEXT");
-  if (!m_destroyDebugReportCallback)
-    Log.report(logvisor::Fatal, FMT_STRING("GetInstanceProcAddr: Unable to find vkDestroyDebugReportCallbackEXT function."));
-
-  VkDebugReportCallbackCreateInfoEXT debugCreateInfo = {};
-  debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
-  debugCreateInfo.pNext = nullptr;
-  debugCreateInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
-  debugCreateInfo.pfnCallback = dbgFunc;
-  debugCreateInfo.pUserData = nullptr;
-  ThrowIfFailed(createDebugReportCallback(m_instance, &debugCreateInfo, nullptr, &m_debugReportCallback));
-#endif
-
-  vk::init_dispatch_table_middle(m_instance, false);
-
-  return true;
-}
-
-bool VulkanContext::initVulkan(std::string_view appName, PFN_vkGetInstanceProcAddr getVkProc) {
-  vk::init_dispatch_table_top(getVkProc);
-
-  if (!glslang::InitializeProcess()) {
-    Log.report(logvisor::Error, FMT_STRING("unable to initialize glslang"));
-    return false;
-  }
-
-  uint32_t instanceLayerCount;
-  VkLayerProperties* vkProps = nullptr;
-  VkResult res;
-
-  /*
-   * It's possible, though very rare, that the number of
-   * instance layers could change. For example, installing something
-   * could include new layers that the loader would pick up
-   * between the initial query for the count and the
-   * request for VkLayerProperties. The loader indicates that
-   * by returning a VK_INCOMPLETE status and will update the
-   * the count parameter.
-   * The count parameter will be updated with the number of
-   * entries loaded into the data pointer - in case the number
-   * of layers went down or is smaller than the size given.
-   */
-#ifdef _WIN32
-  char* vkSdkPath = getenv("VK_SDK_PATH");
-  if (vkSdkPath) {
-    std::string str = "VK_LAYER_PATH=";
-    str += vkSdkPath;
-    str += "\\Bin";
-    _putenv(str.c_str());
-  }
-#else
-  setenv("VK_LAYER_PATH", "/usr/share/vulkan/explicit_layer.d", 1);
-#endif
-  do {
-    ThrowIfFailed(vk::EnumerateInstanceLayerProperties(&instanceLayerCount, nullptr));
-
-    if (instanceLayerCount == 0)
-      break;
-
-    vkProps = (VkLayerProperties*)realloc(vkProps, instanceLayerCount * sizeof(VkLayerProperties));
-
-    res = vk::EnumerateInstanceLayerProperties(&instanceLayerCount, vkProps);
-  } while (res == VK_INCOMPLETE);
-
-  /*
-   * Now gather the extension list for each instance layer.
-   */
-  for (uint32_t i = 0; i < instanceLayerCount; ++i) {
-    LayerProperties layerProps;
-    layerProps.properties = vkProps[i];
-    ThrowIfFailed(InitGlobalExtensionProperties(layerProps));
-    m_instanceLayerProperties.push_back(layerProps);
-  }
-  free(vkProps);
-
-  /* need platform surface extensions */
-  m_instanceExtensionNames.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-#ifdef _WIN32
-  m_instanceExtensionNames.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
-#else
-  m_instanceExtensionNames.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
-#endif
-
-#ifndef NDEBUG
-  m_layerNames.push_back("VK_LAYER_KHRONOS_validation");
-  // m_layerNames.push_back("VK_LAYER_RENDERDOC_Capture");
-  // m_layerNames.push_back("VK_LAYER_LUNARG_api_dump");
-#endif
-
-  demo_check_layers(m_instanceLayerProperties, m_layerNames);
-
-#ifndef NDEBUG
-  /* Enable debug callback extension */
-  m_instanceExtensionNames.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
-#endif
-
-  /* create the instance */
-  VkApplicationInfo appInfo = {};
-  appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  appInfo.pNext = nullptr;
-  appInfo.pApplicationName = appName.data();
-  appInfo.applicationVersion = 1;
-  appInfo.pEngineName = "Boo";
-  appInfo.engineVersion = 1;
-  appInfo.apiVersion = VK_API_VERSION_1_1;
-
-  VkInstanceCreateInfo instInfo = {};
-  instInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-  instInfo.pNext = nullptr;
-  instInfo.flags = 0;
-  instInfo.pApplicationInfo = &appInfo;
-  instInfo.enabledLayerCount = m_layerNames.size();
-  instInfo.ppEnabledLayerNames = m_layerNames.size() ? m_layerNames.data() : nullptr;
-  instInfo.enabledExtensionCount = m_instanceExtensionNames.size();
-  instInfo.ppEnabledExtensionNames = m_instanceExtensionNames.data();
-
-  VkResult instRes = vk::CreateInstance(&instInfo, nullptr, &m_instance);
   if (instRes != VK_SUCCESS) {
     Log.report(logvisor::Error,
                FMT_STRING("The Vulkan runtime is installed, but there are no supported "
@@ -618,8 +494,7 @@ bool VulkanContext::enumerateDevices() {
   return true;
 }
 
-// Does the same thing as initDevice but with OpenXR stuff added.
-void VulkanContext::initDeviceXr(PFN_vkGetInstanceProcAddr getVkProc, XrInstance xrInstance, XrSystemId xrSystemId){
+void VulkanContext::initDevice(PFN_vkGetInstanceProcAddr getVkProc, PFN_xrGetInstanceProcAddr getXrProc, XrInstance xrInstance, XrSystemId xrSystemId) {
   if (m_graphicsQueueFamilyIndex == UINT32_MAX)
     Log.report(logvisor::Fatal, FMT_STRING("VulkanContext::m_graphicsQueueFamilyIndex hasn't been initialized"));
 
@@ -697,209 +572,29 @@ void VulkanContext::initDeviceXr(PFN_vkGetInstanceProcAddr getVkProc, XrInstance
   deviceInfo.ppEnabledExtensionNames = deviceInfo.enabledExtensionCount ? m_deviceExtensionNames.data() : nullptr;
   deviceInfo.pEnabledFeatures = &features;
 
-  XrVulkanDeviceCreateInfoKHR deviceCreateInfo{XR_TYPE_VULKAN_DEVICE_CREATE_INFO_KHR};
-  deviceCreateInfo.systemId = xrSystemId;
-  deviceCreateInfo.pfnGetInstanceProcAddr = getVkProc;
-  deviceCreateInfo.vulkanCreateInfo = &deviceInfo;
-  deviceCreateInfo.vulkanPhysicalDevice = m_gpus[0];
-  deviceCreateInfo.vulkanAllocator = nullptr;
-  VkResult err;
-  CHECK_XRCMD(CreateVulkanDeviceKHR(xrInstance, &deviceCreateInfo, &m_dev, &err));
-  ThrowIfFailed(err);
+  if (getXrProc){
+    XrVulkanDeviceCreateInfoKHR deviceCreateInfo{XR_TYPE_VULKAN_DEVICE_CREATE_INFO_KHR};
+    deviceCreateInfo.systemId = xrSystemId;
+    deviceCreateInfo.pfnGetInstanceProcAddr = getVkProc;
+    deviceCreateInfo.vulkanCreateInfo = &deviceInfo;
+    deviceCreateInfo.vulkanPhysicalDevice = m_gpus[0];
+    deviceCreateInfo.vulkanAllocator = nullptr;
+    VkResult err;
+    CHECK_XRCMD(CreateVulkanDeviceKHR(xrInstance, &deviceCreateInfo, &m_dev, &err));
+    ThrowIfFailed(err);
 
-  m_xrGraphicsBinding.type = VulkanDataFactory::GetGraphicsBindingType();
-  m_xrGraphicsBinding.instance = m_instance;
-  m_xrGraphicsBinding.physicalDevice = m_gpus[0];
-  m_xrGraphicsBinding.device = m_dev;
-  m_xrGraphicsBinding.queueFamilyIndex = queueInfo.queueFamilyIndex;
-  m_xrGraphicsBinding.queueIndex = 0;
+    m_xrGraphicsBinding.type = VulkanDataFactory::GetGraphicsBindingType();
+    m_xrGraphicsBinding.instance = m_instance;
+    m_xrGraphicsBinding.physicalDevice = m_gpus[0];
+    m_xrGraphicsBinding.device = m_dev;
+    m_xrGraphicsBinding.queueFamilyIndex = queueInfo.queueFamilyIndex;
+    m_xrGraphicsBinding.queueIndex = 0;
 
-  vk::init_dispatch_table_bottom(m_instance, m_dev);
-
-  /* allocator */
-  VmaVulkanFunctions vulkanFunctions = {};
-  vulkanFunctions.vkGetPhysicalDeviceProperties = vk::GetPhysicalDeviceProperties;
-  vulkanFunctions.vkGetPhysicalDeviceMemoryProperties = vk::GetPhysicalDeviceMemoryProperties;
-  vulkanFunctions.vkAllocateMemory = vk::AllocateMemory;
-  vulkanFunctions.vkFreeMemory = vk::FreeMemory;
-  vulkanFunctions.vkMapMemory = vk::MapMemory;
-  vulkanFunctions.vkUnmapMemory = vk::UnmapMemory;
-  vulkanFunctions.vkBindBufferMemory = vk::BindBufferMemory;
-  vulkanFunctions.vkBindImageMemory = vk::BindImageMemory;
-  vulkanFunctions.vkGetBufferMemoryRequirements = vk::GetBufferMemoryRequirements;
-  vulkanFunctions.vkGetImageMemoryRequirements = vk::GetImageMemoryRequirements;
-  vulkanFunctions.vkCreateBuffer = vk::CreateBuffer;
-  vulkanFunctions.vkDestroyBuffer = vk::DestroyBuffer;
-  vulkanFunctions.vkCreateImage = vk::CreateImage;
-  vulkanFunctions.vkDestroyImage = vk::DestroyImage;
-  if (hasGetMemReq2 && hasDedicatedAllocation) {
-    vulkanFunctions.vkGetBufferMemoryRequirements2KHR = reinterpret_cast<PFN_vkGetBufferMemoryRequirements2KHR>(
-        vk::GetDeviceProcAddr(m_dev, "vkGetBufferMemoryRequirements2KHR"));
-    vulkanFunctions.vkGetImageMemoryRequirements2KHR = reinterpret_cast<PFN_vkGetImageMemoryRequirements2KHR>(
-        vk::GetDeviceProcAddr(m_dev, "vkGetImageMemoryRequirements2KHR"));
   }
-  VmaAllocatorCreateInfo allocatorInfo = {};
-  allocatorInfo.flags = allocFlags;
-  allocatorInfo.physicalDevice = m_gpus[0];
-  allocatorInfo.device = m_dev;
-  allocatorInfo.pVulkanFunctions = &vulkanFunctions;
-  ThrowIfFailed(vmaCreateAllocator(&allocatorInfo, &m_allocator));
-
-  // Going to need a command buffer to send the memory barriers in
-  // set_image_layout but we couldn't have created one before we knew
-  // what our graphics_queue_family_index is, but now that we have it,
-  // create the command buffer
-
-  VkCommandPoolCreateInfo cmdPoolInfo = {};
-  cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-  cmdPoolInfo.pNext = nullptr;
-  cmdPoolInfo.queueFamilyIndex = m_graphicsQueueFamilyIndex;
-  cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-  ThrowIfFailed(vk::CreateCommandPool(m_dev, &cmdPoolInfo, nullptr, &m_loadPool));
-
-  VkCommandBufferAllocateInfo cmd = {};
-  cmd.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  cmd.pNext = nullptr;
-  cmd.commandPool = m_loadPool;
-  cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  cmd.commandBufferCount = 1;
-  ThrowIfFailed(vk::AllocateCommandBuffers(m_dev, &cmd, &m_loadCmdBuf));
-
-  vk::GetDeviceQueue(m_dev, m_graphicsQueueFamilyIndex, 0, &m_queue);
-  OPTICK_GPU_INIT_VULKAN(&m_dev, &m_gpus[0], &m_queue, &m_graphicsQueueFamilyIndex, 1, nullptr);
-
-  /* Begin load command buffer here */
-  VkCommandBufferBeginInfo cmdBufBeginInfo = {};
-  cmdBufBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  cmdBufBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  ThrowIfFailed(vk::BeginCommandBuffer(m_loadCmdBuf, &cmdBufBeginInfo));
-
-  m_sampleCountColor = flp2(std::min(m_gpuProps.limits.framebufferColorSampleCounts, m_sampleCountColor));
-  m_sampleCountDepth = flp2(std::min(m_gpuProps.limits.framebufferDepthSampleCounts, m_sampleCountDepth));
-
-  if (m_features.samplerAnisotropy)
-    m_anisotropy = std::min(m_gpuProps.limits.maxSamplerAnisotropy, m_anisotropy);
   else
-    m_anisotropy = 1;
-
-  VkDescriptorSetLayoutBinding layoutBindings[BOO_GLSL_MAX_UNIFORM_COUNT + BOO_GLSL_MAX_TEXTURE_COUNT];
-  for (int i = 0; i < BOO_GLSL_MAX_UNIFORM_COUNT; ++i) {
-    layoutBindings[i].binding = i;
-    layoutBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    layoutBindings[i].descriptorCount = 1;
-    layoutBindings[i].stageFlags =
-        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | tessellationDescriptorBit;
-    layoutBindings[i].pImmutableSamplers = nullptr;
+  {
+    ThrowIfFailed(vk::CreateDevice(m_gpus[0], &deviceInfo, nullptr, &m_dev));
   }
-  for (int i = BOO_GLSL_MAX_UNIFORM_COUNT; i < BOO_GLSL_MAX_UNIFORM_COUNT + BOO_GLSL_MAX_TEXTURE_COUNT; ++i) {
-    layoutBindings[i].binding = i;
-    layoutBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    layoutBindings[i].descriptorCount = 1;
-    layoutBindings[i].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | tessellationDescriptorBit;
-    layoutBindings[i].pImmutableSamplers = nullptr;
-  }
-
-  VkDescriptorSetLayoutCreateInfo descriptorLayout = {};
-  descriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  descriptorLayout.pNext = nullptr;
-  descriptorLayout.bindingCount = BOO_GLSL_MAX_UNIFORM_COUNT + BOO_GLSL_MAX_TEXTURE_COUNT;
-  descriptorLayout.pBindings = layoutBindings;
-
-  ThrowIfFailed(vk::CreateDescriptorSetLayout(m_dev, &descriptorLayout, nullptr, &m_descSetLayout));
-
-  VkPipelineLayoutCreateInfo pipelineLayout = {};
-  pipelineLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  pipelineLayout.setLayoutCount = 1;
-  pipelineLayout.pSetLayouts = &m_descSetLayout;
-  ThrowIfFailed(vk::CreatePipelineLayout(m_dev, &pipelineLayout, nullptr, &m_pipelinelayout));
-
-  std::string gpuName = m_gpuProps.deviceName;
-  Log.report(logvisor::Info, FMT_STRING("Initialized {}"), gpuName);
-  Log.report(logvisor::Info, FMT_STRING("Vulkan version {}.{}.{}"), m_gpuProps.apiVersion >> 22,
-             (m_gpuProps.apiVersion >> 12) & 0b1111111111, m_gpuProps.apiVersion & 0b111111111111);
-  Log.report(logvisor::Info, FMT_STRING("Driver version {}.{}.{}"), m_gpuProps.driverVersion >> 22,
-             (m_gpuProps.driverVersion >> 12) & 0b1111111111, m_gpuProps.driverVersion & 0b111111111111);
-}
-
-void VulkanContext::initDevice() {
-  if (m_graphicsQueueFamilyIndex == UINT32_MAX)
-    Log.report(logvisor::Fatal, FMT_STRING("VulkanContext::m_graphicsQueueFamilyIndex hasn't been initialized"));
-
-  /* create the device and queues */
-  VkDeviceQueueCreateInfo queueInfo = {};
-  float queuePriorities[1] = {0.0};
-  queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-  queueInfo.pNext = nullptr;
-  queueInfo.queueCount = 1;
-  queueInfo.pQueuePriorities = queuePriorities;
-  queueInfo.queueFamilyIndex = m_graphicsQueueFamilyIndex;
-
-  vk::GetPhysicalDeviceFeatures(m_gpus[0], &m_features);
-  VkPhysicalDeviceFeatures features = {};
-  if (m_features.samplerAnisotropy)
-    features.samplerAnisotropy = VK_TRUE;
-  if (!m_features.textureCompressionBC)
-    Log.report(logvisor::Fatal, FMT_STRING("Vulkan device does not support DXT-format textures"));
-  features.textureCompressionBC = VK_TRUE;
-  VkShaderStageFlagBits tessellationDescriptorBit = VkShaderStageFlagBits(0);
-  if (m_features.tessellationShader) {
-    tessellationDescriptorBit = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-    features.tessellationShader = VK_TRUE;
-  }
-  if (!m_features.dualSrcBlend)
-    Log.report(logvisor::Fatal, FMT_STRING("Vulkan device does not support dual-source blending"));
-  features.dualSrcBlend = VK_TRUE;
-
-  uint32_t extCount = 0;
-  vk::EnumerateDeviceExtensionProperties(m_gpus[0], nullptr, &extCount, nullptr);
-  std::vector<VkExtensionProperties> extensions(extCount);
-  vk::EnumerateDeviceExtensionProperties(m_gpus[0], nullptr, &extCount, extensions.data());
-  bool hasSwapchain = false;
-  bool hasDebugMarker = false;
-  bool hasGetMemReq2 = false;
-  bool hasDedicatedAllocation = false;
-  for (const VkExtensionProperties& ext : extensions) {
-    if (!hasSwapchain && !strcmp(ext.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME))
-      hasSwapchain = true;
-    else if (!hasDebugMarker && !strcmp(ext.extensionName, VK_EXT_DEBUG_MARKER_EXTENSION_NAME))
-      hasDebugMarker = true;
-    else if (!hasGetMemReq2 && !strcmp(ext.extensionName, VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME))
-      hasGetMemReq2 = true;
-    else if (!hasDedicatedAllocation && !strcmp(ext.extensionName, VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME))
-      hasDedicatedAllocation = true;
-  }
-
-  if (!hasSwapchain)
-    Log.report(logvisor::Fatal, FMT_STRING("Vulkan device does not support swapchains"));
-
-  /* need swapchain device extension */
-  m_deviceExtensionNames.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-#ifdef BOO_GRAPHICS_DEBUG_GROUPS
-  if (hasDebugMarker) {
-    /* Enable debug marker extension if enabled in the build system */
-    m_deviceExtensionNames.push_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
-  }
-#endif
-
-  VmaAllocatorCreateFlags allocFlags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
-  if (hasGetMemReq2 && hasDedicatedAllocation) {
-    m_deviceExtensionNames.push_back(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
-    m_deviceExtensionNames.push_back(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
-    allocFlags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
-  }
-
-  VkDeviceCreateInfo deviceInfo = {};
-  deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-  deviceInfo.pNext = nullptr;
-  deviceInfo.queueCreateInfoCount = 1;
-  deviceInfo.pQueueCreateInfos = &queueInfo;
-  deviceInfo.enabledLayerCount = m_layerNames.size();
-  deviceInfo.ppEnabledLayerNames = deviceInfo.enabledLayerCount ? m_layerNames.data() : nullptr;
-  deviceInfo.enabledExtensionCount = m_deviceExtensionNames.size();
-  deviceInfo.ppEnabledExtensionNames = deviceInfo.enabledExtensionCount ? m_deviceExtensionNames.data() : nullptr;
-  deviceInfo.pEnabledFeatures = &features;
-
-  ThrowIfFailed(vk::CreateDevice(m_gpus[0], &deviceInfo, nullptr, &m_dev));
 
   vk::init_dispatch_table_bottom(m_instance, m_dev);
 

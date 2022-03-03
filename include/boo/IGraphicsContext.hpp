@@ -40,7 +40,7 @@ public:
   virtual EGraphicsAPI getAPI() const = 0;
   virtual EPixelFormat getPixelFormat() const = 0;
   virtual void setPixelFormat(EPixelFormat pf) = 0;
-  virtual bool initializeContext(void* handle) = 0;
+  virtual bool initializeContext(void* handle, void* openXrHandle, XrInstance xrInstance, XrSystemId xrSystemId) = 0;
   virtual void makeCurrent() = 0;
   virtual void postInit() = 0;
   virtual void present() = 0;

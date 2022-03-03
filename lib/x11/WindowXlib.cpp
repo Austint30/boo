@@ -275,8 +275,6 @@ struct GraphicsContextXlib : IGraphicsContext {
   : m_api(api), m_pf(pf), m_parentWindow(parentWindow), m_glCtx(glCtx), m_xDisp(disp) {}
   virtual void destroy() = 0;
   virtual void resized(const SWindowRect& rect) = 0;
-
-  virtual bool initializeContextXr(void* handle, XrInstance xrInstance, XrSystemId xrSystemId) = 0;
 };
 
 struct GraphicsContextXlibGLX : GraphicsContextXlib {
@@ -394,12 +392,7 @@ public:
     m_pf = pf;
   }
 
-  bool initializeContextXr(void* handle, XrInstance xrInstance, XrSystemId xrSystemId) override {
-    Log.report(logvisor::Error, FMT_STRING("GraphicsContextXlibGLX does not support OpenXR yet."));
-    return false;
-  }
-
-  bool initializeContext(void*) override {
+  bool initializeContext(void*, void*, XrInstance xrInstance, XrSystemId xrSystemId) override {
     if (!glXCreateContextAttribsARB) {
       glXCreateContextAttribsARB =
           (glXCreateContextAttribsARBProc)glXGetProcAddressARB((const GLubyte*)"glXCreateContextAttribsARB");
@@ -559,9 +552,17 @@ public:
     m_pf = pf;
   }
 
-  bool initializeContextXr(void* getVkProc, XrInstance xrInstance, XrSystemId xrSystemId) override {
-    if (m_ctx->m_instance == VK_NULL_HANDLE)
-      m_ctx->initVulkanXr(APP->getUniqueName(), PFN_vkGetInstanceProcAddr(getVkProc), xrInstance, xrSystemId);
+  bool initializeContext(void* getVkProc, void* getXrProc, XrInstance xrInstance, XrSystemId xrSystemId) override {
+    if (m_ctx->m_instance == VK_NULL_HANDLE){
+      if (getXrProc){
+        m_ctx->initVulkan(APP->getUniqueName(), PFN_vkGetInstanceProcAddr(getVkProc), PFN_xrGetInstanceProcAddr(getXrProc), xrInstance, xrSystemId);
+      }
+      else
+      {
+        m_ctx->initVulkan(APP->getUniqueName(), PFN_vkGetInstanceProcAddr(getVkProc), nullptr, nullptr, -1);
+      }
+    }
+
 
     if (!m_ctx->enumerateDevices())
       return false;
@@ -597,103 +598,13 @@ public:
       if (m_ctx->m_graphicsQueueFamilyIndex == UINT32_MAX)
         Log.report(logvisor::Fatal, FMT_STRING("Could not find a queue that supports both graphics and present"));
 
-      m_ctx->initDeviceXr(PFN_vkGetInstanceProcAddr(getVkProc), xrInstance, xrSystemId);
-    } else {
-      /* Subsequent window, verify present */
-      if (supportsPresent[m_ctx->m_graphicsQueueFamilyIndex] == VK_FALSE)
-        Log.report(logvisor::Fatal, FMT_STRING("subsequent surface doesn't support present"));
-    }
-    free(supportsPresent);
-
-    if (!vk::GetPhysicalDeviceXcbPresentationSupportKHR(m_ctx->m_gpus[0], m_ctx->m_graphicsQueueFamilyIndex, m_xcbConn,
-                                                        m_visualid)) {
-      Log.report(logvisor::Fatal, FMT_STRING("XCB visual doesn't support vulkan present"));
-      return false;
-    }
-
-    /* Get the list of VkFormats that are supported */
-    uint32_t formatCount;
-    ThrowIfFailed(vk::GetPhysicalDeviceSurfaceFormatsKHR(m_ctx->m_gpus[0], m_surface, &formatCount, nullptr));
-    std::vector<VkSurfaceFormatKHR> surfFormats(formatCount);
-    ThrowIfFailed(
-        vk::GetPhysicalDeviceSurfaceFormatsKHR(m_ctx->m_gpus[0], m_surface, &formatCount, surfFormats.data()));
-
-    /* If the format list includes just one entry of VK_FORMAT_UNDEFINED,
-     * the surface has no preferred format.  Otherwise, at least one
-     * supported format will be returned. */
-    if (formatCount >= 1) {
-      if (m_ctx->m_deepColor) {
-        for (uint32_t i = 0; i < formatCount; ++i) {
-          if (surfFormats[i].format == VK_FORMAT_R16G16B16A16_UNORM) {
-            m_format = surfFormats[i].format;
-            m_colorspace = surfFormats[i].colorSpace;
-            break;
-          }
-        }
+      if (getXrProc){
+        m_ctx->initDevice(PFN_vkGetInstanceProcAddr(getVkProc), PFN_xrGetInstanceProcAddr(getXrProc), xrInstance, xrSystemId);
       }
-      if (m_format == VK_FORMAT_UNDEFINED) {
-        for (uint32_t i = 0; i < formatCount; ++i) {
-          if (surfFormats[i].format == VK_FORMAT_B8G8R8A8_UNORM || surfFormats[i].format == VK_FORMAT_R8G8B8A8_UNORM) {
-            m_format = surfFormats[i].format;
-            m_colorspace = surfFormats[i].colorSpace;
-            break;
-          }
-        }
+      else
+      {
+        m_ctx->initDevice(nullptr, nullptr, nullptr, -1);
       }
-    } else
-      Log.report(logvisor::Fatal, FMT_STRING("no surface formats available for Vulkan swapchain"));
-
-    if (m_format == VK_FORMAT_UNDEFINED)
-      Log.report(logvisor::Fatal, FMT_STRING("no UNORM formats available for Vulkan swapchain"));
-
-    m_ctx->initSwapChain(*m_windowCtx, m_surface, m_format, m_colorspace);
-
-    m_dataFactory = _NewVulkanDataFactory(this, m_ctx);
-    m_commandQueue = _NewVulkanCommandQueue(m_ctx, m_ctx->m_windows[m_parentWindow].get(), this);
-    m_commandQueue->startRenderer();
-
-    return true;
-  }
-
-  bool initializeContext(void* getVkProc) override {
-    if (m_ctx->m_instance == VK_NULL_HANDLE)
-      m_ctx->initVulkan(APP->getUniqueName(), PFN_vkGetInstanceProcAddr(getVkProc));
-
-    if (!m_ctx->enumerateDevices())
-      return false;
-
-    m_windowCtx = m_ctx->m_windows.emplace(std::make_pair(m_parentWindow, std::make_unique<VulkanContext::Window>()))
-                      .first->second.get();
-
-    VkXcbSurfaceCreateInfoKHR surfaceInfo = {};
-    surfaceInfo.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
-    surfaceInfo.connection = m_xcbConn;
-    surfaceInfo.window = m_parentWindow->getPlatformHandle();
-    ThrowIfFailed(vk::CreateXcbSurfaceKHR(m_ctx->m_instance, &surfaceInfo, nullptr, &m_surface));
-
-    /* Iterate over each queue to learn whether it supports presenting */
-    VkBool32* supportsPresent = (VkBool32*)malloc(m_ctx->m_queueCount * sizeof(VkBool32));
-    for (uint32_t i = 0; i < m_ctx->m_queueCount; ++i)
-      vk::GetPhysicalDeviceSurfaceSupportKHR(m_ctx->m_gpus[0], i, m_surface, &supportsPresent[i]);
-
-    /* Search for a graphics queue and a present queue in the array of queue
-     * families, try to find one that supports both */
-    if (m_ctx->m_graphicsQueueFamilyIndex == UINT32_MAX) {
-      /* First window, init device */
-      for (uint32_t i = 0; i < m_ctx->m_queueCount; ++i) {
-        if ((m_ctx->m_queueProps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
-          if (supportsPresent[i] == VK_TRUE) {
-            m_ctx->m_graphicsQueueFamilyIndex = i;
-          }
-        }
-      }
-
-      /* Generate error if could not find a queue that supports both a graphics
-       * and present */
-      if (m_ctx->m_graphicsQueueFamilyIndex == UINT32_MAX)
-        Log.report(logvisor::Fatal, FMT_STRING("Could not find a queue that supports both graphics and present"));
-
-      m_ctx->initDevice();
     } else {
       /* Subsequent window, verify present */
       if (supportsPresent[m_ctx->m_graphicsQueueFamilyIndex] == VK_FALSE)
@@ -843,7 +754,7 @@ class WindowXlib final : public IWindow {
 
 public:
   WindowXlib(std::string_view title, Display* display, void* xcbConn, int defaultScreen, XIM xIM,
-             XIMStyle bestInputStyle, XFontSet fontset, GLXContext lastCtx, void* vulkanHandle, GLContext* glCtx, bool enableXr=false)
+             XIMStyle bestInputStyle, XFontSet fontset, GLXContext lastCtx, void* vulkanHandle, void* openXrHandle, GLContext* glCtx)
   : m_xDisp(display), m_callback(nullptr), m_bestStyle(bestInputStyle) {
     BOO_MSAN_NO_INTERCEPT
     if (!S_ATOMS)
@@ -968,24 +879,21 @@ public:
       m_waitPeriod = {nanos / 1000000000, nanos % 1000000000};
       XFlush(m_xDisp);
 
-      if (enableXr){
+      if (openXrHandle) {
         OpenXROptions options;
         m_openXrSystem = std::make_shared<OpenXRSystem>(options);
         m_openXrSystem->createInstance(m_gfxCtx->openXrInstanceExtensions());
         m_openXrSystem->initializeSystem();
 
-        if (!m_gfxCtx->initializeContextXr(vulkanHandle, const_cast<XrInstance>(m_openXrSystem->getMInstance()), m_openXrSystem->getMSystemId())) {
+        if (!m_gfxCtx->initializeContext(vulkanHandle, openXrHandle, m_openXrSystem->m_instance, m_openXrSystem->m_systemId)) {
           XUnmapWindow(m_xDisp, m_windowId);
           XDestroyWindow(m_xDisp, m_windowId);
           XFreeColormap(m_xDisp, m_colormapId);
           continue;
         }
 
-        m_openXrSystem->initializeSession(m_gfxCtx->getGraphicsBinding());
-      }
-      else
-      {
-        if (!m_gfxCtx->initializeContext(vulkanHandle)) {
+      } else {
+        if (!m_gfxCtx->initializeContext(vulkanHandle, nullptr, nullptr, -1)) {
           XUnmapWindow(m_xDisp, m_windowId);
           XDestroyWindow(m_xDisp, m_windowId);
           XFreeColormap(m_xDisp, m_colormapId);
@@ -1890,17 +1798,9 @@ public:
 
 std::shared_ptr<IWindow> _WindowXlibNew(std::string_view title, Display* display, void* xcbConn, int defaultScreen,
                                         XIM xIM, XIMStyle bestInputStyle, XFontSet fontset, GLXContext lastCtx,
-                                        void* vulkanHandle, GLContext* glCtx) {
+                                        void* vulkanHandle, void* openXrHandle, GLContext* glCtx) {
   std::shared_ptr<IWindow> ret = std::make_shared<WindowXlib>(title, display, xcbConn, defaultScreen, xIM,
-                                                              bestInputStyle, fontset, lastCtx, vulkanHandle, glCtx);
-  return ret;
-}
-
-std::shared_ptr<IWindow> _WindowXlibNewXR(std::string_view title, Display* display, void* xcbConn, int defaultScreen,
-                                        XIM xIM, XIMStyle bestInputStyle, XFontSet fontset, GLXContext lastCtx,
-                                        void* vulkanHandle, GLContext* glCtx) {
-  std::shared_ptr<IWindow> ret = std::make_shared<WindowXlib>(title, display, xcbConn, defaultScreen, xIM,
-                                                              bestInputStyle, fontset, lastCtx, vulkanHandle, glCtx, true);
+                                                              bestInputStyle, fontset, lastCtx, vulkanHandle, openXrHandle, glCtx);
   return ret;
 }
 

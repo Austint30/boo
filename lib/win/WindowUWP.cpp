@@ -139,7 +139,7 @@ public:
     m_pf = pf;
   }
 
-  bool initializeContext(void*) override { return true; }
+  bool initializeContext(void*, void*, XrInstance xrInstance, XrSystemId xrSystemId) override { return true; }
 
   void makeCurrent() override {}
 

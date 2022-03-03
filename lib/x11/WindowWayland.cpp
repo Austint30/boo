@@ -34,7 +34,7 @@ public:
     m_pf = pf;
   }
 
-  bool initializeContext(void*) override { return false; }
+  bool initializeContext(void*, void*, XrInstance xrInstance, XrSystemId xrSystemId) override { return false; }
 
   void makeCurrent() override {}
 

@@ -13,6 +13,8 @@
 #include <GL/glx.h>
 #include <GL/glxext.h>
 
+#include <openxr/openxr_platform.h>
+
 #include <dbus/dbus.h>
 DBusConnection* RegisterDBus(const char* appName, bool& isFirst);
 
@@ -106,11 +108,7 @@ static Window GetWindowOfEvent(XEvent* event, bool& windowEvent) {
 
 std::shared_ptr<IWindow> _WindowXlibNew(std::string_view title, Display* display, void* xcbConn, int defaultScreen,
                                         XIM xIM, XIMStyle bestInputStyle, XFontSet fontset, GLXContext lastCtx,
-                                        void* vulkanHandle, GLContext* glCtx);
-
-std::shared_ptr<IWindow> _WindowXlibNewXR(std::string_view title, Display* display, void* xcbConn, int defaultScreen,
-                                        XIM xIM, XIMStyle bestInputStyle, XFontSet fontset, GLXContext lastCtx,
-                                        void* vulkanHandle, GLContext* glCtx);
+                                        void* vulkanHandle, void* openXrHandle, GLContext* glCtx);
 
 static XIMStyle ChooseBetterStyle(XIMStyle style1, XIMStyle style2) {
   XIMStyle s, t;
@@ -177,6 +175,26 @@ class ApplicationXlib final : public IApplication {
 
   void* m_vkHandle = nullptr;
   PFN_vkGetInstanceProcAddr m_getVkProc = 0;
+  PFN_xrGetInstanceProcAddr m_getXrProc = 0;
+
+  bool loadOpenXr() {
+    const char filename[] = "libopenxr_loader.so";
+    void *handle, *symbol;
+
+    handle = dlopen(filename, RTLD_LAZY);
+
+    if (handle)
+      symbol = dlsym(handle, "xrGetInstanceProcAddr");
+
+    if (!handle || !symbol){
+      if (handle)
+        dlclose(handle);
+      return false;
+    }
+    m_getXrProc = reinterpret_cast<PFN_xrGetInstanceProcAddr>(symbol);
+    return true;
+  }
+
   bool loadVk() {
     const char filename[] = "libvulkan.so";
     void *handle, *symbol;
@@ -228,6 +246,7 @@ public:
 
     /* Check for Vulkan presence and preference */
     bool tryVulkan = true;
+    bool tryOpenXR = false;
     if (gfxApi == "OpenGL")
       tryVulkan = false;
     for (const std::string& arg : args) {
@@ -239,6 +258,9 @@ public:
         tryVulkan = true;
         break;
       }
+      if (arg == "--openxr"){
+        tryOpenXR = true;
+      }
     }
 
     if (tryVulkan)
@@ -249,6 +271,13 @@ public:
     else
 #endif
       Log.report(logvisor::Info, FMT_STRING("using OpenGL renderer"));
+    if (tryOpenXR){
+      loadOpenXr();
+    }
+
+    if (m_getXrProc){
+      Log.report(logvisor::Info, FMT_STRING("Using OpenXR"));
+    }
 
 #ifndef BOO_MSAN
     /* DBus single instance registration */
@@ -539,32 +568,10 @@ public:
     XLockDisplay(m_xDisp);
 #if BOO_HAS_VULKAN
     std::shared_ptr<IWindow> newWindow = _WindowXlibNew(title, m_xDisp, m_xcbConn, m_xDefaultScreen, m_xIM, m_bestStyle,
-                                                        m_fontset, m_lastGlxCtx, (void*)m_getVkProc, &m_glContext);
+                                                        m_fontset, m_lastGlxCtx, (void*)m_getVkProc, (void*)m_getXrProc, &m_glContext);
 #else
     std::shared_ptr<IWindow> newWindow = _WindowXlibNew(title, m_xDisp, nullptr, m_xDefaultScreen, m_xIM, m_bestStyle,
-                                                        m_fontset, m_lastGlxCtx, nullptr, &m_glContext);
-#endif
-    Window wid = (Window)newWindow->getPlatformHandle();
-    m_windows[wid] = newWindow;
-    XEvent reply = {};
-    reply.xclient.type = ClientMessage;
-    reply.xclient.window = wid;
-    reply.xclient.message_type = XA_INTEGER;
-    reply.xclient.format = 32;
-    reply.xclient.data.l[0] = 'NWID';
-    XSendEvent(m_xDisp, wid, false, 0, &reply);
-    XUnlockDisplay(m_xDisp);
-    return newWindow;
-  }
-
-  std::shared_ptr<IWindow> newWindowXr(std::string_view title) override {
-    XLockDisplay(m_xDisp);
-#if BOO_HAS_VULKAN
-    std::shared_ptr<IWindow> newWindow = _WindowXlibNewXR(title, m_xDisp, m_xcbConn, m_xDefaultScreen, m_xIM, m_bestStyle,
-                                                        m_fontset, m_lastGlxCtx, (void*)m_getVkProc, &m_glContext);
-#else
-    std::shared_ptr<IWindow> newWindow = _WindowXlibNewXR(title, m_xDisp, nullptr, m_xDefaultScreen, m_xIM, m_bestStyle,
-                                                        m_fontset, m_lastGlxCtx, nullptr, &m_glContext);
+                                                        m_fontset, m_lastGlxCtx, nullptr, (void*)m_getXrProc, &m_glContext);
 #endif
     Window wid = (Window)newWindow->getPlatformHandle();
     m_windows[wid] = newWindow;
