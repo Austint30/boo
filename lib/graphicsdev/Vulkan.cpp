@@ -427,7 +427,10 @@ bool VulkanContext::initVulkan(std::string_view appName, PFN_vkGetInstanceProcAd
     createInfo.vulkanCreateInfo = &instInfo;
     createInfo.vulkanAllocator = nullptr;
 
-    CHECK_XRCMD(CreateVulkanInstanceKHR(xrInstance, &createInfo, &m_instance, &instRes));
+    PFN_xrCreateVulkanInstanceKHR pfnCreateVulkanInstanceKHR = nullptr;
+    CHECK_XRCMD(getXrProc(xrInstance, "xrCreateVulkanInstanceKHR",
+                                      reinterpret_cast<PFN_xrVoidFunction*>(&pfnCreateVulkanInstanceKHR)));
+    CHECK_XRCMD(pfnCreateVulkanInstanceKHR(xrInstance, &createInfo, &m_instance, &instRes));
     Log.report(logvisor::Info, FMT_STRING("OPENXR instance created"));
   }
   else
@@ -580,7 +583,11 @@ void VulkanContext::initDevice(PFN_vkGetInstanceProcAddr getVkProc, PFN_xrGetIns
     deviceCreateInfo.vulkanPhysicalDevice = m_gpus[0];
     deviceCreateInfo.vulkanAllocator = nullptr;
     VkResult err;
-    CHECK_XRCMD(CreateVulkanDeviceKHR(xrInstance, &deviceCreateInfo, &m_dev, &err));
+
+    PFN_xrCreateVulkanDeviceKHR pfnCreateVulkanDeviceKHR = nullptr;
+    CHECK_XRCMD(getXrProc(xrInstance, "xrCreateVulkanDeviceKHR",
+                                      reinterpret_cast<PFN_xrVoidFunction*>(&pfnCreateVulkanDeviceKHR)));
+    CHECK_XRCMD(pfnCreateVulkanDeviceKHR(xrInstance, &deviceCreateInfo, &m_dev, &err));
     ThrowIfFailed(err);
 
     m_xrGraphicsBinding.type = VulkanDataFactory::GetGraphicsBindingType();
