@@ -528,14 +528,12 @@ if(WINDOWS_STORE)
   set_property(TARGET boo booTest PROPERTY VS_WINRT_COMPONENT TRUE)
 endif()
 
-
-find_path(OPENXR_INCLUDE_DIR
-  NAMES openxr/openxr.h
-)
-
 # OpenXR
-find_library(OPENXR_LIBRARY openxr_loader)
+find_package(OpenXR REQUIRED)
+if (NOT OpenXR_FOUND)
+    MESSAGE(FATAL_ERROR "OpenXR not found!")
+endif()
 include(SelectLibraryConfigurations)
 select_library_configurations(OPENXR)
-target_link_libraries(boo PUBLIC ${OPENXR_LIBRARIES})
-target_include_directories(boo PUBLIC ${OPENXR_INCLUDE_DIR}/include)
+target_include_directories(boo PRIVATE ${OpenXR_INCLUDE_DIR})
+target_link_libraries(boo PRIVATE OpenXR::openxr_loader)

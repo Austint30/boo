@@ -892,6 +892,8 @@ public:
           continue;
         }
 
+        m_openXrSystem->initializeSession(m_gfxCtx->getGraphicsBinding());
+
       } else {
         if (!m_gfxCtx->initializeContext(vulkanHandle, nullptr, nullptr, -1)) {
           XUnmapWindow(m_xDisp, m_windowId);
