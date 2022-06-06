@@ -692,7 +692,6 @@ class WindowXlib final : public IWindow {
   XIMStyle m_bestStyle;
   XIC m_xIC = nullptr;
   std::unique_ptr<GraphicsContextXlib> m_gfxCtx;
-  std::shared_ptr<OpenXRSystem> m_openXrSystem;
   uint32_t m_visualId;
 
   struct timespec m_waitPeriod = {0, static_cast<long int>(1000000000.0/60.0)};
@@ -881,18 +880,18 @@ public:
 
       if (openXrHandle) {
         OpenXROptions options;
-        m_openXrSystem = std::make_shared<OpenXRSystem>(options);
-        m_openXrSystem->createInstance(m_gfxCtx->openXrInstanceExtensions());
-        m_openXrSystem->initializeSystem();
+        auto OXRSesMgr = InstantiateOXRSessionManager(options);
+        OXRSesMgr->createInstance(m_gfxCtx->openXrInstanceExtensions());
+        OXRSesMgr->initializeSystem();
 
-        if (!m_gfxCtx->initializeContext(vulkanHandle, openXrHandle, m_openXrSystem->m_instance, m_openXrSystem->m_systemId)) {
+        if (!m_gfxCtx->initializeContext(vulkanHandle, openXrHandle, OXRSesMgr->m_instance, OXRSesMgr->m_systemId)) {
           XUnmapWindow(m_xDisp, m_windowId);
           XDestroyWindow(m_xDisp, m_windowId);
           XFreeColormap(m_xDisp, m_colormapId);
           continue;
         }
 
-        m_openXrSystem->initializeSession(m_gfxCtx->getGraphicsBinding());
+        OXRSesMgr->initializeSession(m_gfxCtx->getGraphicsBinding());
 
       } else {
         if (!m_gfxCtx->initializeContext(vulkanHandle, nullptr, nullptr, -1)) {

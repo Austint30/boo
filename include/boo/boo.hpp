@@ -10,4 +10,4 @@
 #include "inputdev/DualshockPad.hpp"
 #include "inputdev/GenericPad.hpp"
 #include "inputdev/NintendoPowerA.hpp"
-#include "include/boo/vrdev/OpenXRSystem.hpp"
+#include "include/boo/vrdev/OpenXRSessionManager.hpp"

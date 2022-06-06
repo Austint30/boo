@@ -7,7 +7,7 @@
 #include "boo/IWindow.hpp"
 #include "boo/System.hpp"
 #include "boo/inputdev/DeviceFinder.hpp"
-#include "boo/vrdev/OpenXRSystem.hpp"
+#include "boo/vrdev/OpenXRSessionManager.hpp"
 
 namespace boo {
 class IApplication;

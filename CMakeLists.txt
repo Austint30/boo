@@ -106,7 +106,7 @@ add_library(boo
   lib/inputdev/DeviceSignature.cpp include/boo/inputdev/DeviceSignature.hpp
   lib/inputdev/DeviceFinder.cpp include/boo/inputdev/DeviceFinder.hpp
   lib/inputdev/HIDParser.cpp include/boo/inputdev/HIDParser.hpp
-  lib/vrdev/OpenXRSystem.cpp include/boo/vrdev/OpenXRSystem.hpp
+        lib/vrdev/OpenXRSessionManager.cpp include/boo/vrdev/OpenXRSessionManager.hpp
   lib/inputdev/IHIDDevice.hpp
   include/boo/IGraphicsContext.hpp
   include/boo/audiodev/IAudioSubmix.hpp
@@ -128,7 +128,7 @@ add_library(boo
   include/boo/System.hpp
   include/boo/ThreadLocalPtr.hpp
         include/boo/vrdev/OpenXROptions.h
-  InputDeviceClasses.cpp lib/vrdev/OpenXRSystem.cpp)
+  InputDeviceClasses.cpp lib/vrdev/OpenXRSessionManager.cpp)
 
 if (NOT MSVC)
   target_compile_options(boo PRIVATE -Wno-narrowing)

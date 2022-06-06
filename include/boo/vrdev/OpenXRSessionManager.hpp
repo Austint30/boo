@@ -16,7 +16,7 @@
 
 namespace boo {
 
-struct OpenXRSystem {
+struct OpenXRSessionManager {
   friend class WindowXlib;
 private:
   const OpenXROptions m_options;
@@ -27,10 +27,13 @@ private:
   XrViewConfigurationType m_viewConfigType{XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO};
   XrEnvironmentBlendMode m_environmentBlendMode{XR_ENVIRONMENT_BLEND_MODE_OPAQUE};
   XrSystemId m_systemId{XR_NULL_SYSTEM_ID};
+  std::vector<XrView> m_views;
 
 public:
-  explicit OpenXRSystem(const OpenXROptions options);
-  virtual ~OpenXRSystem() = default;
+  explicit OpenXRSessionManager(const OpenXROptions options);
+  virtual ~OpenXRSessionManager() = default;
+
+  std::vector<XrView> GetViews();
 
   // Create an Instance and other basic instance-level initialization.
   void createInstance(std::vector<std::string> graphicsExtensions);
@@ -195,5 +198,9 @@ public:
     }
   }
 };
+
+extern std::shared_ptr<OpenXRSessionManager> g_OpenXRSessionManager;
+
+std::shared_ptr<OpenXRSessionManager> InstantiateOXRSessionManager(OpenXROptions options);
 
 } // namespace boo

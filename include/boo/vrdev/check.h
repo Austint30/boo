@@ -11,7 +11,7 @@
 #define TOSTRING(x) CHK_STRINGIFY(x)
 #define FILE_AND_LINE __FILE__ ":" TOSTRING(__LINE__)
 
-inline void Throw(std::string failureMessage, const char* originator = nullptr, const char* sourceLocation = nullptr) {
+inline void Throw(std::string failureMessage, const char* originator = "", const char* sourceLocation = "") {
   if (originator != nullptr) {
     failureMessage += Fmt("\n    Origin: %s", originator);
   }
