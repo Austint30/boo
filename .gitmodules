@@ -4,7 +4,7 @@
 	branch = master
 [submodule "logvisor"]
 	path = logvisor
-	url = ../logvisor.git
+	url = https://github.com/AxioDL/logvisor.git
 	branch = master
 [submodule "optick"]
 	path = optick
